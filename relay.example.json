@@ -1,0 +1,30 @@
+{
+  // Paste relayId, account and coord from the Pocket App: Settings → Relay → Add your own relay.
+  // Nothing here is secret. S3 keys (if any) come from the environment variables named below.
+  "relayId": "r_xxxxxxxxxx",
+  "account": "u_xxxxxxxxxxxxxxxxxxxxxxxx",
+  "publicUrl": "https://relay.example.com",
+  "listen": { "host": "0.0.0.0", "port": 8443 },
+
+  // Either terminate TLS here (certificate and key files, reloaded when they change) or set "tls": null and run
+  // behind a reverse proxy that handles HTTPS and WebSocket upgrades (then set "trustProxy": true).
+  "tls": { "cert": "/etc/pocket-relay/fullchain.pem", "key": "/etc/pocket-relay/privkey.pem" },
+  "trustProxy": false,
+
+  "coord": {
+    "url": "https://pocket.pocketcli.net",
+    "pinnedKeys": [ { "kid": "c1", "pub": "<from the App>", "use": ["keys", "ticket", "netmap", "revocations", "purge"], "nbf": 0, "exp": 0 } ]
+  },
+
+  "dataDir": "/var/lib/pocket-relay",
+
+  // Attachments on this server's disk (default). For an S3-compatible bucket instead:
+  //   "blobs": { "store": "s3", "backends": [ { "name": "main", "when": "default", "endpoint": "https://s3.example.com",
+  //     "region": "us-east-1", "bucket": "my-pocket", "accessKeyEnv": "RELAY_S3_KEY", "secretKeyEnv": "RELAY_S3_SECRET",
+  //     "pathStyle": false, "prefix": "pocket/" } ] }
+  "blobs": { "store": "disk" },
+
+  "timezone": "Asia/Shanghai",
+  "quota": { "dayMB": null, "monthMB": null, "storeMB": null, "useTicketQuota": true },
+  "retention": { "objectDays": 30, "blobDays": 30, "queueMaxSeconds": 604800 }
+}

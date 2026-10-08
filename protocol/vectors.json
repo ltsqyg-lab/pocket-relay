@@ -1,0 +1,2320 @@
+{
+  "about": {
+    "spec": "docs/protocol/E2EE.md (protocol v1)",
+    "generator": "docs/protocol/gen-vectors.mjs (node gen-vectors.mjs --check must pass)",
+    "encoding": "All byte strings are base64url without padding unless the field name says hex. *Text fields are the same bytes shown as UTF-8 for reading; the base64url field is normative.",
+    "signatures": "ECDSA signatures here are deterministic (RFC 6979) so this file is reproducible. Implementations may sign with randomized ECDSA; they must verify these.",
+    "contexts": "`prefix` = how many statements of lock.chain to apply to get the lock state; device names refer to `devices`.",
+    "testOnly": "All private keys below are public test material.",
+    "now": 1791417600000,
+    "account": "u_test0001"
+  },
+  "wordlists": {
+    "english": {
+      "file": "wordlists/bip39-english.txt",
+      "sha256": "2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda"
+    },
+    "chineseSimplified": {
+      "file": "wordlists/bip39-chinese-simplified.txt",
+      "sha256": "5c5942792bd8340cb8b27cd592f1015edf56a8c5b26276ee18a482428e7c5726"
+    }
+  },
+  "encoding": {
+    "b64u": [
+      {
+        "hex": "",
+        "b64u": ""
+      },
+      {
+        "hex": "00",
+        "b64u": "AA"
+      },
+      {
+        "hex": "ff",
+        "b64u": "_w"
+      },
+      {
+        "hex": "0000",
+        "b64u": "AAA"
+      },
+      {
+        "hex": "fbff",
+        "b64u": "-_8"
+      },
+      {
+        "hex": "000102",
+        "b64u": "AAEC"
+      },
+      {
+        "hex": "48656c6c6f",
+        "b64u": "SGVsbG8"
+      }
+    ],
+    "b64uInvalid": [
+      "AA==",
+      "A",
+      "AB",
+      "+/8",
+      "AA\n",
+      "AAA ",
+      "AB=="
+    ],
+    "sigInput": {
+      "label": "env",
+      "h": "e30",
+      "c": "AQI",
+      "bytesHex": "706f636b65742f763120656e7600000000027b7d0102"
+    },
+    "sealJson": {
+      "h": "eyJ2IjoxLCJ0Ijoib2JqIiwiaWQiOiItSmN5c2xoM212V25FQV9UU090RExBIiwibm9uY2UiOiJadTI3NjBvbjRmZXF1Njh2IiwicmVhbG0iOiJvb0VCUEtKZEFPSHZZeFBTIiwia2luZCI6InNlc3MiLCJrZXkiOiI1aHd0WmFuVGxrZVYwa1lfUWl5NnVnIiwidmVyIjo5LCJlcG9jaCI6MiwiYnkiOiJvb0VCUEtKZEFPSHZZeFBTIiwidHMiOjE3OTE0MTc3MjAwMDB9",
+      "hText": "{\"v\":1,\"t\":\"obj\",\"id\":\"-Jcyslh3mvWnEA_TSOtDLA\",\"nonce\":\"Zu2760on4fequ68v\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"kind\":\"sess\",\"key\":\"5hwtZanTlkeV0kY_Qiy6ug\",\"ver\":9,\"epoch\":2,\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791417720000}",
+      "c": "ZTR06SJ_-PELd-H77EmwXu5mWzWBvmpqs7ep1ddzinBLqZY0DGJUVKo4ALz654ao4fYXH9xZCL0IhIUkZIvLRMzeaZM2jWjoFHNmz9oPvQlOiAgzy0A9aoHvVO-TnTxbqOzo8LVywJ6yu1bo4IPJ6nu3EXWyQ34Akkl6HRyFgwsHKiaAwEHa7Q8Btfrpb9MBJtFR9AclfL87ow1N0Q24YUvLKtilkj06h3_c8ccHPFSgr2I3NpyCSepq0KDjegTy_SaghlGcidaIM8_yAIgQDOKJkzL1AAFWg8VSAK-atpw",
+      "s": "RZ83KkuxDXR4xvCaQybJ-vIbZ6UdEeBNWiG95cw6GIe1wlxIZtY1fnG2yrm6J4fyv0eFxb8Xt3cGm9GecS_eFg"
+    },
+    "sealBinaryHex": "000000cf7b2276223a312c2274223a226f626a222c226964223a222d4a6379736c68336d76576e45415f54534f74444c41222c226e6f6e6365223a225a75323736306f6e3466657175363876222c227265616c6d223a226f6f4542504b4a64414f487659785053222c226b696e64223a2273657373222c226b6579223a22356877745a616e546c6b6556306b595f516979367567222c22766572223a392c2265706f6368223a322c226279223a226f6f4542504b4a64414f487659785053222c227473223a313739313431373732303030307d000000e0653474e9227ff8f10b77e1fbec49b05eee665b3581be6a6ab3b7a9d5d7738a704ba996340c625454aa3800bcfae786a8e1f6171fdc5908bd08848524648bcb44ccde6993368d68e8147366cfda0fbd094e880833cb403d6a81ef54ef939d3c5ba8ece8f0b572c09eb2bb56e8e083c9ea7bb71175b2437e0092497a1d1c85830b072a2680c041daed0f01b5fae96fd30126d151f407257cbf3ba30d4dd10db8614bcb2ad8a5923d3a877fdcf1c7073c54a0af6237369c8249ea6ad0a0e37a04f2fd26a086519c89d68833cff20088100ce2899332f500015683c55200af9ab69c459f372a4bb10d7478c6f09a4326c9faf21b67a51d11e04d5a21bde5cc3a1887b5c25c4866d6357e71b6cab9ba2787f2bf4785c5bf17b777069bd19e712fde16",
+    "sealStreamOfTwoHex": "000000cf7b2276223a312c2274223a226f626a222c226964223a222d4a6379736c68336d76576e45415f54534f74444c41222c226e6f6e6365223a225a75323736306f6e3466657175363876222c227265616c6d223a226f6f4542504b4a64414f487659785053222c226b696e64223a2273657373222c226b6579223a22356877745a616e546c6b6556306b595f516979367567222c22766572223a392c2265706f6368223a322c226279223a226f6f4542504b4a64414f487659785053222c227473223a313739313431373732303030307d000000e0653474e9227ff8f10b77e1fbec49b05eee665b3581be6a6ab3b7a9d5d7738a704ba996340c625454aa3800bcfae786a8e1f6171fdc5908bd08848524648bcb44ccde6993368d68e8147366cfda0fbd094e880833cb403d6a81ef54ef939d3c5ba8ece8f0b572c09eb2bb56e8e083c9ea7bb71175b2437e0092497a1d1c85830b072a2680c041daed0f01b5fae96fd30126d151f407257cbf3ba30d4dd10db8614bcb2ad8a5923d3a877fdcf1c7073c54a0af6237369c8249ea6ad0a0e37a04f2fd26a086519c89d68833cff20088100ce2899332f500015683c55200af9ab69c459f372a4bb10d7478c6f09a4326c9faf21b67a51d11e04d5a21bde5cc3a1887b5c25c4866d6357e71b6cab9ba2787f2bf4785c5bf17b777069bd19e712fde16000000cf7b2276223a312c2274223a226f626a222c226964223a222d4a6379736c68336d76576e45415f54534f74444c41222c226e6f6e6365223a225a75323736306f6e3466657175363876222c227265616c6d223a226f6f4542504b4a64414f487659785053222c226b696e64223a2273657373222c226b6579223a22356877745a616e546c6b6556306b595f516979367567222c22766572223a392c2265706f6368223a322c226279223a226f6f4542504b4a64414f487659785053222c227473223a313739313431373732303030307d000000e0653474e9227ff8f10b77e1fbec49b05eee665b3581be6a6ab3b7a9d5d7738a704ba996340c625454aa3800bcfae786a8e1f6171fdc5908bd08848524648bcb44ccde6993368d68e8147366cfda0fbd094e880833cb403d6a81ef54ef939d3c5ba8ece8f0b572c09eb2bb56e8e083c9ea7bb71175b2437e0092497a1d1c85830b072a2680c041daed0f01b5fae96fd30126d151f407257cbf3ba30d4dd10db8614bcb2ad8a5923d3a877fdcf1c7073c54a0af6237369c8249ea6ad0a0e37a04f2fd26a086519c89d68833cff20088100ce2899332f500015683c55200af9ab69c459f372a4bb10d7478c6f09a4326c9faf21b67a51d11e04d5a21bde5cc3a1887b5c25c4866d6357e71b6cab9ba2787f2bf4785c5bf17b777069bd19e712fde16"
+  },
+  "hkdf": [
+    {
+      "name": "RFC 5869 A.1",
+      "ikm": "CwsLCwsLCwsLCwsLCwsLCwsLCwsLCw",
+      "salt": "AAECAwQFBgcICQoLDA",
+      "info": "8PHy8_T19vf4-Q",
+      "length": 42,
+      "okmHex": "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865"
+    },
+    {
+      "name": "pocket names key (empty salt)",
+      "ikm": "5i-sGkGY40qgn0-CRl4Qfi8u3m1BDuTdGcjih3ijn7A",
+      "salt": "",
+      "info": "cG9ja2V0L3YxIG5hbWVz",
+      "length": 32,
+      "okmHex": "12a6d700c2979bca91cc82e4b16e8b48cb450d59e4b413786f73c3f8d089bb40"
+    }
+  ],
+  "ecdsa": {
+    "rfc6979": {
+      "d": "c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721",
+      "msg": "sample",
+      "sig": "efd48b2aacb6a8fd1140dd9cd45e81d69d2c877b56aaf991c34d0ea84eaf3716f7cb1c942d657c41d436c7a1b6e29f65f3e900dbb9aff4064dc4ab2f843acda8",
+      "note": "RFC 6979 A.2.5 (P-256, SHA-256, \"sample\"); hex; the generator refuses to run if it does not reproduce this"
+    },
+    "invalidSignatures": [
+      {
+        "name": "r = 0",
+        "sig": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ",
+        "pub": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+        "message": "YW55dGhpbmc",
+        "valid": false
+      },
+      {
+        "name": "s = n",
+        "sig": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH_____AAAAAP__________vOb6racXnoTzucrC_GMlUQ",
+        "pub": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+        "message": "YW55dGhpbmc",
+        "valid": false
+      },
+      {
+        "name": "DER-encoded instead of raw",
+        "sig": "MAYCAQECAQE",
+        "pub": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+        "message": "YW55dGhpbmc",
+        "valid": false
+      }
+    ],
+    "invalidPublicKeys": [
+      {
+        "name": "compressed point",
+        "pub": "ApL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-n"
+      },
+      {
+        "name": "not on the curve",
+        "pub": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT8"
+      },
+      {
+        "name": "x >= p",
+        "pub": "BP____8AAAABAAAAAAAAAAAAAAAA________________zcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4"
+      }
+    ]
+  },
+  "devices": {
+    "phoneA": {
+      "id": "w1bzP7i5sMuhcmSd",
+      "kind": "phone",
+      "platform": "ios",
+      "name": "iPhone A",
+      "addr": "100.64.0.11",
+      "sigPriv": "dWfWeYBVJ-XIBz6DDTMIisGpGvY6vLFlb2yWA-_rEdc",
+      "sig": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+      "kxPriv": "_JNI1B66AgwAfBZ9s__ULnEr_3pUPJ-6qD0JElu4uZs",
+      "kx": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw"
+    },
+    "phoneB": {
+      "id": "VI0ngEbQISu3XrZX",
+      "kind": "phone",
+      "platform": "android",
+      "name": "Pixel B",
+      "addr": "100.64.0.12",
+      "sigPriv": "2C_9xIuijcmWwbihHoiiw3QYFpBBVV8CUQ37ZDS7Hm0",
+      "sig": "BN49QqXVfI5aY1IAuBW_pe3nD5s42e2V6WeXtq-B74Oy8pO7rxH9JVQaispIqTM4mrvdsuCQrxqmV7E-IGXcyKE",
+      "kxPriv": "-6CnZvRcBuV0syUohQm5pI1GI9Ufj8F7sbNDFAN61Vg",
+      "kx": "BBBkPxYkprxafXoJal_NPs3zhhU2CcDaUq_191ODCWwgxCZ3onrheXljuvnVvv3z-yrJZEnQi3b6n6elkIL76uo"
+    },
+    "computerC": {
+      "id": "ooEBPKJdAOHvYxPS",
+      "kind": "computer",
+      "platform": "mac",
+      "name": "MacBook C",
+      "addr": "100.64.0.21",
+      "sigPriv": "5kfH8j1kT3a1tIMVDH1FKC5EkLJpdQSrjLe5_KAX7iY",
+      "sig": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+      "kxPriv": "h5SvpmteLvGsHxnjnR7EZBfvhKe-ROOobWzRSrvV7Vc",
+      "kx": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM"
+    },
+    "computerD": {
+      "id": "kDmP6N40pmf2Vk_u",
+      "kind": "computer",
+      "platform": "windows",
+      "name": "PC D",
+      "addr": "100.64.0.22",
+      "sigPriv": "n6VvCaAnyXTFlDJ-fjEllU28VbjLccdks6gSn1p8FhQ",
+      "sig": "BNFgEZFpwtWuYRg3-0LWmvAIjHgyqquDH-8Nd7jV5JFGnL6VchUN47kzAN5ed6AkphdHrKkaE5uyTyyJxz0kIrU",
+      "kxPriv": "md3eZplC-0SIASQTs_5Ee08xTb7O3wLQatbszTNmGPc",
+      "kx": "BJsKl7ltTuiRUq8Zq447W_fnk_aKSMg1WYWzfbUqofNjOZm0oOrvah5lgInasGyLxCGOoxha_12P-kzIGqB4AaE"
+    },
+    "evil": {
+      "id": "hV6ylVuIV9187U3-",
+      "kind": "phone",
+      "platform": "ios",
+      "name": "Evil",
+      "addr": "100.64.0.99",
+      "sigPriv": "t3LCKPzyLrlVo-D3maMdJXUULiUsooyLmvXkS81MKhk",
+      "sig": "BD3gUyqWnuM2Onjs0IIvUlnIMEM9tJ78wi_O41QALeUiGYC2oLQ9bDFvYBaXB1cpUR-hvrzFTxClzKoyv3n1bHM",
+      "kxPriv": "FgEJQ85mOWfO-z1LFwjDruoqYAy3Xiver-a6hEJ2SbQ",
+      "kx": "BNvcWqhTkScfJdYRP1uZtHnqpSj83XYuB5FJ3HWM__9eqLzTFYe0Dzjes69sol8_e97yVGrIzM8ZXXp-M2IeWHI"
+    }
+  },
+  "ecdh": [
+    {
+      "priv": "phoneA.kxPriv",
+      "pub": "computerC.kx",
+      "shared": "18N8tv-6udUzhC7yvKHnRoRKh7DRA0MHCRIWRltoyzg"
+    },
+    {
+      "priv": "computerC.kxPriv",
+      "pub": "phoneA.kx",
+      "shared": "18N8tv-6udUzhC7yvKHnRoRKh7DRA0MHCRIWRltoyzg"
+    },
+    {
+      "priv": "phoneB.kxPriv",
+      "pub": "computerD.kx",
+      "shared": "kq9P7fXyQctApA8dRbgPvR_JfqiprLcKLREV7DbgR1g"
+    }
+  ],
+  "realmKeys": {
+    "computerC": {
+      "1": "5i-sGkGY40qgn0-CRl4Qfi8u3m1BDuTdGcjih3ijn7A",
+      "2": "jONvFLnrc2Kv1EAnQopAfHgaiqIijQ6dzhLNICwQ5SU"
+    },
+    "computerD": {
+      "1": "qq1Fd7BmSJDN6odroCHsju88Uft8EaGQ9qlQ1Lg3a3Y"
+    }
+  },
+  "kid": [
+    {
+      "key": "5i-sGkGY40qgn0-CRl4Qfi8u3m1BDuTdGcjih3ijn7A",
+      "kid": "w2wXghhz29ZFZPAJSl9Row"
+    },
+    {
+      "key": "jONvFLnrc2Kv1EAnQopAfHgaiqIijQ6dzhLNICwQ5SU",
+      "kid": "D9-8leMZYHMMJkxDrqkZxg"
+    },
+    {
+      "key": "qq1Fd7BmSJDN6odroCHsju88Uft8EaGQ9qlQ1Lg3a3Y",
+      "kid": "3db19LJJSmJAjya1D9_ztw"
+    }
+  ],
+  "names": {
+    "realm": "computerC",
+    "epoch1Key": "5i-sGkGY40qgn0-CRl4Qfi8u3m1BDuTdGcjih3ijn7A",
+    "namesKey": "EqbXAMKXm8qRzILksW6LSMtFDVnktBN4b3PD-NCJu0A",
+    "sessions": [
+      {
+        "sessionId": "5f1c2a5e-8f2b-4c55-9b7e-6c0d7a2b9e10",
+        "xv": 4,
+        "sk": "5hwtZanTlkeV0kY_Qiy6ug"
+      },
+      {
+        "sessionId": "019a6b2c-7d3e-7f00-8a1b-2c3d4e5f6a7b",
+        "xv": 4,
+        "sk": "rAInb6nywyHBP4y7x7Rhig"
+      },
+      {
+        "sessionId": "5f1c2a5e-8f2b-4c55-9b7e-6c0d7a2b9e10",
+        "xv": 5,
+        "sk": "hlyxMPwc_Un0Z0Z14zTVUw"
+      }
+    ]
+  },
+  "sas": [
+    {
+      "device": "phoneB",
+      "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+      "sig": "BN49QqXVfI5aY1IAuBW_pe3nD5s42e2V6WeXtq-B74Oy8pO7rxH9JVQaispIqTM4mrvdsuCQrxqmV7E-IGXcyKE",
+      "kx": "BBBkPxYkprxafXoJal_NPs3zhhU2CcDaUq_191ODCWwgxCZ3onrheXljuvnVvv3z-yrJZEnQi3b6n6elkIL76uo",
+      "indices": [
+        237,
+        1310,
+        949,
+        970,
+        1812,
+        1136
+      ],
+      "english": [
+        "buffalo",
+        "phrase",
+        "issue",
+        "junk",
+        "tip",
+        "mix"
+      ],
+      "chineseSimplified": [
+        "运",
+        "睡",
+        "措",
+        "宗",
+        "煮",
+        "池"
+      ]
+    },
+    {
+      "device": "computerC",
+      "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+      "sig": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+      "kx": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+      "indices": [
+        1805,
+        1783,
+        1152,
+        837,
+        72,
+        567
+      ],
+      "english": [
+        "ticket",
+        "ten",
+        "mosquito",
+        "hamster",
+        "animal",
+        "eight"
+      ],
+      "chineseSimplified": [
+        "厉",
+        "妙",
+        "宝",
+        "宁",
+        "电",
+        "鱼"
+      ]
+    },
+    {
+      "device": "computerD",
+      "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+      "sig": "BNFgEZFpwtWuYRg3-0LWmvAIjHgyqquDH-8Nd7jV5JFGnL6VchUN47kzAN5ed6AkphdHrKkaE5uyTyyJxz0kIrU",
+      "kx": "BJsKl7ltTuiRUq8Zq447W_fnk_aKSMg1WYWzfbUqofNjOZm0oOrvah5lgInasGyLxCGOoxha_12P-kzIGqB4AaE",
+      "indices": [
+        480,
+        1083,
+        429,
+        1330,
+        1726,
+        1482
+      ],
+      "english": [
+        "despair",
+        "manual",
+        "cup",
+        "play",
+        "style",
+        "rich"
+      ],
+      "chineseSimplified": [
+        "包",
+        "繁",
+        "克",
+        "呈",
+        "扣",
+        "氮"
+      ]
+    }
+  ],
+  "seal": [
+    {
+      "label": "env",
+      "ikm": "OBWuDibsud_jX-2CUIrfriuCzi21UZf1DNVR7_rMKbA",
+      "h": "eyJ2IjoxLCJ0IjoidGVzdCIsImlkIjoiQlNfLXBwOVNaWHB6NmtDUHJuUXJJZyIsIm5vbmNlIjoiVWEzNGQzTGFhQmtlak1CaCJ9",
+      "hText": "{\"v\":1,\"t\":\"test\",\"id\":\"BS_-pp9SZXpz6kCPrnQrIg\",\"nonce\":\"Ua34d3LaaBkejMBh\"}",
+      "key": "BygiOuqox4bkjq-iUkAkCfeeH4xvVXnL3rcYprRkdUI",
+      "plaintext": "aGVsbG8sIHBvY2tldA",
+      "c": "KFG-KHB8uWMNayjBKL86lCESpzwfSmtoe79LnkM"
+    },
+    {
+      "label": "obj",
+      "ikm": "nzt0yQ5N3fEYNULo-Fm9bFcbAzzgRqn4V0ZsAUyF9xs",
+      "h": "eyJ2IjoxLCJ0IjoidGVzdCIsImlkIjoibEpvVHJKSVFKb1RTSW9CT0lhOXY5USIsIm5vbmNlIjoicDV6QVo5V2hNRFNrbGRiRyJ9",
+      "hText": "{\"v\":1,\"t\":\"test\",\"id\":\"lJoTrJIQJoTSIoBOIa9v9Q\",\"nonce\":\"p5zAZ9WhMDSkldbG\"}",
+      "key": "d5yM1rtnkWfTOZaxOtQy2VDCc-1UpkzJ3WjgQSDAt5Y",
+      "plaintext": "",
+      "c": "hBan8o4Z2x9VYJhOXs8MEg"
+    }
+  ],
+  "lock": {
+    "account": "u_test0001",
+    "chain": [
+      {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjoxLCJwcmV2IjpudWxsLCJ0cyI6MTc5MTQxNzY2MDAwMCwiYnkiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwib3AiOnsidHlwZSI6ImdlbmVzaXMiLCJkZXZpY2UiOnsiaWQiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwia2luZCI6InBob25lIiwicGxhdGZvcm0iOiJpb3MiLCJuYW1lIjoiaVBob25lIEEiLCJhZGRyIjoiMTAwLjY0LjAuMTEiLCJzaWciOiJCSkxfUWozZzFqOHI3cXFCOTlxZ3JacTlOSTlURTd5ZGV0RFYwb2NZekQtbnpjQkVQTUl3NGc0X3kwUDA1OThVQjRUc21IdHRwR0htZEhTeHB2eE5WVDQiLCJreCI6IkJBcXVoVEc1ZHRoZ3NlYWI1ZVB0TTVzXzltdFI4NVRmRHFRTE9BUlZ4eXItN0tvbFpPWGJ1TXBjV3NEQzktaGMxbG9PU1BlUmNyZ0xCNV9LMndVOHNTdyIsImFkbWluIjp0cnVlfX19",
+        "s": "QFVDrEhmM8joxVfeD8eXl7oPlQ5S8dekQNB3LBhBy6xkocH8SzebATCf-BVtpLNQnzHD8SsZkFlyOVi2Oyiv_w"
+      },
+      {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjoyLCJwcmV2Ijoic0NEQUh5Y0V0a1F4dkxWMHBzNHRtU25PNWZjWmU3Sm1FTmJUOUwxYXd4cyIsInRzIjoxNzkxNDE3NzIwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoib29FQlBLSmRBT0h2WXhQUyIsImtpbmQiOiJjb21wdXRlciIsInBsYXRmb3JtIjoibWFjIiwibmFtZSI6Ik1hY0Jvb2sgQyIsImFkZHIiOiIxMDAuNjQuMC4yMSIsInNpZyI6IkJHVmVzeGtfa1h6bU1ENjFXcnZfRFk4U01iUXBON1N5aGttRl96VTlTNVQzYWNOU2xVYlF2eWZiaFJPVjNIWHpDdFBoQlZfMzZqcWVrTFZGWDVyNEx0OCIsImt4IjoiQkxCZms1aDFFVW82amNZeVp5SEpnSXk3Z1VfSjUwSG41Mzc4YWlDb2dkdTJyTDAyTUhtYXBBWENiVkJkNTRQZnNSd2lFVEd0SEtYUmlvbWM5dnlRVmFNIiwiYWRtaW4iOnRydWV9LCJzYXMiOnRydWV9fQ",
+        "s": "ypdmKNBmyAibYAokmeT1TLHNoGXQOgNZf9xBFTJrkMp3C2-f_iJUa5G0xKbK9xlc3ccJLivMbYTKomD6HJ1Y-Q"
+      },
+      {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjozLCJwcmV2IjoiaElQcVFCNGctRy1rb2JqU3VZYTRlUTEyanpPSmhQdmI5emw1U0J0MWNxWSIsInRzIjoxNzkxNDE3NzgwMDAwLCJieSI6Im9vRUJQS0pkQU9Idll4UFMiLCJvcCI6eyJ0eXBlIjoicmVhbG0iLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6MSwia2lkIjoidzJ3WGdoaHoyOVpGWlBBSlNsOVJvdyIsInJlYXNvbiI6ImluaXQifX0",
+        "s": "4EUD2fT89i2jCRhU67mpn3ZBXNWcykC8dTiYrarsZkBgLwi1yGArkBAbSV6TjSrhlFsIPMf6F_JG8dz60Gi-oQ"
+      },
+      {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo0LCJwcmV2IjoibmJ4SWRtSU9zNUM2dEtxUndKWEZlYXFrZXFxMS12MWJTN1o5cXplMDlEbyIsInRzIjoxNzkxNDE3ODQwMDAwLCJieSI6Im9vRUJQS0pkQU9Idll4UFMiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiVkkwbmdFYlFJU3UzWHJaWCIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiYW5kcm9pZCIsIm5hbWUiOiJQaXhlbCBCIiwiYWRkciI6IjEwMC42NC4wLjEyIiwic2lnIjoiQk40OVFxWFZmSTVhWTFJQXVCV19wZTNuRDVzNDJlMlY2V2VYdHEtQjc0T3k4cE83cnhIOUpWUWFpc3BJcVRNNG1ydmRzdUNRcnhxbVY3RS1JR1hjeUtFIiwia3giOiJCQkJrUHhZa3ByeGFmWG9KYWxfTlBzM3poaFUyQ2NEYVVxXzE5MU9EQ1d3Z3hDWjNvbnJoZVhsanV2blZ2djN6LXlySlpFblFpM2I2bjZlbGtJTDc2dW8iLCJhZG1pbiI6dHJ1ZX0sInNhcyI6dHJ1ZX19",
+        "s": "Lhn8L7k9KG-Hxhhqx-YlPO7B-EcppXjRpyqe4iTvqdS2nk6-sbEwT_xGLgttR_Gkyfvr04oQ71WJYEWLlclipQ"
+      },
+      {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo1LCJwcmV2IjoiMlR6YkxDQTFJTXZjR3g4Qk4tZnFBdkJNY1BaSGxoZUsyb21UclNUSzZERSIsInRzIjoxNzkxNDE3OTAwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoia0RtUDZONDBwbWYyVmtfdSIsImtpbmQiOiJjb21wdXRlciIsInBsYXRmb3JtIjoid2luZG93cyIsIm5hbWUiOiJQQyBEIiwiYWRkciI6IjEwMC42NC4wLjIyIiwic2lnIjoiQk5GZ0VaRnB3dFd1WVJnMy0wTFdtdkFJakhneXFxdURILThOZDdqVjVKRkduTDZWY2hVTjQ3a3pBTjVlZDZBa3BoZEhyS2thRTV1eVR5eUp4ejBrSXJVIiwia3giOiJCSnNLbDdsdFR1aVJVcThacTQ0N1dfZm5rX2FLU01nMVdZV3pmYlVxb2ZOak9abTBvT3J2YWg1bGdJbmFzR3lMeENHT294aGFfMTJQLWt6SUdxQjRBYUUiLCJhZG1pbiI6dHJ1ZX0sInNhcyI6ZmFsc2V9fQ",
+        "s": "-F9v251OMzAjZKnZo3W7Lw_1aS_5Ed-r0u-W8P6PKxhB7F5nSnlTitfCFivG3AxYQbGWgj6YdtDEQRoHo9rmSg"
+      },
+      {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo2LCJwcmV2IjoiemZ5TTRhR3BLZ3dVc1dSdTlmOWRBekVoQmZwVmdwZmV2QWMwMm9tV1o0QSIsInRzIjoxNzkxNDE3OTYwMDAwLCJieSI6ImtEbVA2TjQwcG1mMlZrX3UiLCJvcCI6eyJ0eXBlIjoicmVhbG0iLCJyZWFsbSI6ImtEbVA2TjQwcG1mMlZrX3UiLCJlcG9jaCI6MSwia2lkIjoiM2RiMTlMSkpTbUpBanlhMUQ5X3p0dyIsInJlYXNvbiI6ImluaXQifX0",
+        "s": "4xm_5iglXo-xUrwPpoAERSrvXr4tP00O9PH8l_GpCfhWdT0aNM213cqnSiaxuAUJ9qweNdtFcnPrAquzr-3FLQ"
+      },
+      {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo3LCJwcmV2IjoiWnZUa3pLOTJKbGlDb1lwYkZ5QmNZaGxjcGFsMXRvRWtuem5DWjFQYlBvRSIsInRzIjoxNzkxNDE4MDIwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoicG9saWN5IiwiYWNsIjp7InBob25lcyI6eyJWSTBuZ0ViUUlTdTNYclpYIjp7ImNvbXB1dGVycyI6WyJvb0VCUEtKZEFPSHZZeFBTIl0sImNvbnRyb2wiOmZhbHNlfX19LCJhZG1pbnMiOnsiVkkwbmdFYlFJU3UzWHJaWCI6ZmFsc2V9fX0",
+        "s": "JOT9bvaMVIrbM5ZoFul7V2mQHSRAFcsSSaVfIgZTn396fRhBHMZpFuaTCXa9Siwo_YZqtfs2heQT6EsACm5eZQ"
+      },
+      {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo4LCJwcmV2IjoiMkhOY2txMFR5RUlIeG5ZOVpTZnh2d3MtRndoekVNTTdmZy11aWtnMU1KOCIsInRzIjoxNzkxNDE4MDgwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoicmV2b2tlIiwiZGV2aWNlIjoiVkkwbmdFYlFJU3UzWHJaWCIsInJlYXNvbiI6Imxvc3QifX0",
+        "s": "PGQ0GodFqtK6VZdppQy9Yx7var1g3JmtTJG9_TZDK6iaTU3Fe1bRaIZ8dlnEuKSLKTcjViEJpkJQxVe4ue0B0A"
+      },
+      {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo5LCJwcmV2IjoiLU5Gc1NfVTRmUDJtZVc1RHVKRTlEUE9GbmJPdlZIREdCc1FrUDl3d2hzVSIsInRzIjoxNzkxNDE4MTQwMDAwLCJieSI6Im9vRUJQS0pkQU9Idll4UFMiLCJvcCI6eyJ0eXBlIjoicmVhbG0iLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwia2lkIjoiRDktOGxlTVpZSE1NSmt4RHJxa1p4ZyIsInJlYXNvbiI6InJldm9rZSJ9fQ",
+        "s": "qFOiiWdYWotdzGrTRXn29NkOC4_c1EIwdgBUc5X3VElMxQOzjLtSnRzBUzMRUyMlHDokkIMEvPjUorw7ZZsvGA"
+      }
+    ],
+    "chainText": [
+      "{\"v\":1,\"t\":\"lock\",\"acct\":\"u_test0001\",\"seq\":1,\"prev\":null,\"ts\":1791417660000,\"by\":\"w1bzP7i5sMuhcmSd\",\"op\":{\"type\":\"genesis\",\"device\":{\"id\":\"w1bzP7i5sMuhcmSd\",\"kind\":\"phone\",\"platform\":\"ios\",\"name\":\"iPhone A\",\"addr\":\"100.64.0.11\",\"sig\":\"BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4\",\"kx\":\"BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw\",\"admin\":true}}}",
+      "{\"v\":1,\"t\":\"lock\",\"acct\":\"u_test0001\",\"seq\":2,\"prev\":\"sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs\",\"ts\":1791417720000,\"by\":\"w1bzP7i5sMuhcmSd\",\"op\":{\"type\":\"add\",\"device\":{\"id\":\"ooEBPKJdAOHvYxPS\",\"kind\":\"computer\",\"platform\":\"mac\",\"name\":\"MacBook C\",\"addr\":\"100.64.0.21\",\"sig\":\"BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8\",\"kx\":\"BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM\",\"admin\":true},\"sas\":true}}",
+      "{\"v\":1,\"t\":\"lock\",\"acct\":\"u_test0001\",\"seq\":3,\"prev\":\"hIPqQB4g-G-kobjSuYa4eQ12jzOJhPvb9zl5SBt1cqY\",\"ts\":1791417780000,\"by\":\"ooEBPKJdAOHvYxPS\",\"op\":{\"type\":\"realm\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":1,\"kid\":\"w2wXghhz29ZFZPAJSl9Row\",\"reason\":\"init\"}}",
+      "{\"v\":1,\"t\":\"lock\",\"acct\":\"u_test0001\",\"seq\":4,\"prev\":\"nbxIdmIOs5C6tKqRwJXFeaqkeqq1-v1bS7Z9qze09Do\",\"ts\":1791417840000,\"by\":\"ooEBPKJdAOHvYxPS\",\"op\":{\"type\":\"add\",\"device\":{\"id\":\"VI0ngEbQISu3XrZX\",\"kind\":\"phone\",\"platform\":\"android\",\"name\":\"Pixel B\",\"addr\":\"100.64.0.12\",\"sig\":\"BN49QqXVfI5aY1IAuBW_pe3nD5s42e2V6WeXtq-B74Oy8pO7rxH9JVQaispIqTM4mrvdsuCQrxqmV7E-IGXcyKE\",\"kx\":\"BBBkPxYkprxafXoJal_NPs3zhhU2CcDaUq_191ODCWwgxCZ3onrheXljuvnVvv3z-yrJZEnQi3b6n6elkIL76uo\",\"admin\":true},\"sas\":true}}",
+      "{\"v\":1,\"t\":\"lock\",\"acct\":\"u_test0001\",\"seq\":5,\"prev\":\"2TzbLCA1IMvcGx8BN-fqAvBMcPZHlheK2omTrSTK6DE\",\"ts\":1791417900000,\"by\":\"w1bzP7i5sMuhcmSd\",\"op\":{\"type\":\"add\",\"device\":{\"id\":\"kDmP6N40pmf2Vk_u\",\"kind\":\"computer\",\"platform\":\"windows\",\"name\":\"PC D\",\"addr\":\"100.64.0.22\",\"sig\":\"BNFgEZFpwtWuYRg3-0LWmvAIjHgyqquDH-8Nd7jV5JFGnL6VchUN47kzAN5ed6AkphdHrKkaE5uyTyyJxz0kIrU\",\"kx\":\"BJsKl7ltTuiRUq8Zq447W_fnk_aKSMg1WYWzfbUqofNjOZm0oOrvah5lgInasGyLxCGOoxha_12P-kzIGqB4AaE\",\"admin\":true},\"sas\":false}}",
+      "{\"v\":1,\"t\":\"lock\",\"acct\":\"u_test0001\",\"seq\":6,\"prev\":\"zfyM4aGpKgwUsWRu9f9dAzEhBfpVgpfevAc02omWZ4A\",\"ts\":1791417960000,\"by\":\"kDmP6N40pmf2Vk_u\",\"op\":{\"type\":\"realm\",\"realm\":\"kDmP6N40pmf2Vk_u\",\"epoch\":1,\"kid\":\"3db19LJJSmJAjya1D9_ztw\",\"reason\":\"init\"}}",
+      "{\"v\":1,\"t\":\"lock\",\"acct\":\"u_test0001\",\"seq\":7,\"prev\":\"ZvTkzK92JliCoYpbFyBcYhlcpal1toEknznCZ1PbPoE\",\"ts\":1791418020000,\"by\":\"w1bzP7i5sMuhcmSd\",\"op\":{\"type\":\"policy\",\"acl\":{\"phones\":{\"VI0ngEbQISu3XrZX\":{\"computers\":[\"ooEBPKJdAOHvYxPS\"],\"control\":false}}},\"admins\":{\"VI0ngEbQISu3XrZX\":false}}}",
+      "{\"v\":1,\"t\":\"lock\",\"acct\":\"u_test0001\",\"seq\":8,\"prev\":\"2HNckq0TyEIHxnY9ZSfxvws-FwhzEMM7fg-uikg1MJ8\",\"ts\":1791418080000,\"by\":\"w1bzP7i5sMuhcmSd\",\"op\":{\"type\":\"revoke\",\"device\":\"VI0ngEbQISu3XrZX\",\"reason\":\"lost\"}}",
+      "{\"v\":1,\"t\":\"lock\",\"acct\":\"u_test0001\",\"seq\":9,\"prev\":\"-NFsS_U4fP2meW5DuJE9DPOFnbOvVHDGBsQkP9wwhsU\",\"ts\":1791418140000,\"by\":\"ooEBPKJdAOHvYxPS\",\"op\":{\"type\":\"realm\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"kid\":\"D9-8leMZYHMMJkxDrqkZxg\",\"reason\":\"revoke\"}}"
+    ],
+    "states": [
+      {
+        "acct": "u_test0001",
+        "seq": 1,
+        "head": {
+          "seq": 1,
+          "h": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs"
+        },
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "devices": {
+          "w1bzP7i5sMuhcmSd": {
+            "name": "iPhone A",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.11",
+            "sas": null,
+            "revoked": false
+          }
+        },
+        "acl": {
+          "phones": {},
+          "computers": {}
+        },
+        "realms": {}
+      },
+      {
+        "acct": "u_test0001",
+        "seq": 2,
+        "head": {
+          "seq": 2,
+          "h": "hIPqQB4g-G-kobjSuYa4eQ12jzOJhPvb9zl5SBt1cqY"
+        },
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "devices": {
+          "w1bzP7i5sMuhcmSd": {
+            "name": "iPhone A",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.11",
+            "sas": null,
+            "revoked": false
+          },
+          "ooEBPKJdAOHvYxPS": {
+            "name": "MacBook C",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.21",
+            "sas": true,
+            "revoked": false
+          }
+        },
+        "acl": {
+          "phones": {},
+          "computers": {}
+        },
+        "realms": {}
+      },
+      {
+        "acct": "u_test0001",
+        "seq": 3,
+        "head": {
+          "seq": 3,
+          "h": "nbxIdmIOs5C6tKqRwJXFeaqkeqq1-v1bS7Z9qze09Do"
+        },
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "devices": {
+          "w1bzP7i5sMuhcmSd": {
+            "name": "iPhone A",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.11",
+            "sas": null,
+            "revoked": false
+          },
+          "ooEBPKJdAOHvYxPS": {
+            "name": "MacBook C",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.21",
+            "sas": true,
+            "revoked": false
+          }
+        },
+        "acl": {
+          "phones": {},
+          "computers": {}
+        },
+        "realms": {
+          "ooEBPKJdAOHvYxPS": {
+            "epoch": 1,
+            "kids": {
+              "1": "w2wXghhz29ZFZPAJSl9Row"
+            }
+          }
+        }
+      },
+      {
+        "acct": "u_test0001",
+        "seq": 4,
+        "head": {
+          "seq": 4,
+          "h": "2TzbLCA1IMvcGx8BN-fqAvBMcPZHlheK2omTrSTK6DE"
+        },
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "devices": {
+          "w1bzP7i5sMuhcmSd": {
+            "name": "iPhone A",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.11",
+            "sas": null,
+            "revoked": false
+          },
+          "ooEBPKJdAOHvYxPS": {
+            "name": "MacBook C",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.21",
+            "sas": true,
+            "revoked": false
+          },
+          "VI0ngEbQISu3XrZX": {
+            "name": "Pixel B",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.12",
+            "sas": true,
+            "revoked": false
+          }
+        },
+        "acl": {
+          "phones": {},
+          "computers": {}
+        },
+        "realms": {
+          "ooEBPKJdAOHvYxPS": {
+            "epoch": 1,
+            "kids": {
+              "1": "w2wXghhz29ZFZPAJSl9Row"
+            }
+          }
+        }
+      },
+      {
+        "acct": "u_test0001",
+        "seq": 5,
+        "head": {
+          "seq": 5,
+          "h": "zfyM4aGpKgwUsWRu9f9dAzEhBfpVgpfevAc02omWZ4A"
+        },
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "devices": {
+          "w1bzP7i5sMuhcmSd": {
+            "name": "iPhone A",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.11",
+            "sas": null,
+            "revoked": false
+          },
+          "ooEBPKJdAOHvYxPS": {
+            "name": "MacBook C",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.21",
+            "sas": true,
+            "revoked": false
+          },
+          "VI0ngEbQISu3XrZX": {
+            "name": "Pixel B",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.12",
+            "sas": true,
+            "revoked": false
+          },
+          "kDmP6N40pmf2Vk_u": {
+            "name": "PC D",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.22",
+            "sas": false,
+            "revoked": false
+          }
+        },
+        "acl": {
+          "phones": {},
+          "computers": {}
+        },
+        "realms": {
+          "ooEBPKJdAOHvYxPS": {
+            "epoch": 1,
+            "kids": {
+              "1": "w2wXghhz29ZFZPAJSl9Row"
+            }
+          }
+        }
+      },
+      {
+        "acct": "u_test0001",
+        "seq": 6,
+        "head": {
+          "seq": 6,
+          "h": "ZvTkzK92JliCoYpbFyBcYhlcpal1toEknznCZ1PbPoE"
+        },
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "devices": {
+          "w1bzP7i5sMuhcmSd": {
+            "name": "iPhone A",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.11",
+            "sas": null,
+            "revoked": false
+          },
+          "ooEBPKJdAOHvYxPS": {
+            "name": "MacBook C",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.21",
+            "sas": true,
+            "revoked": false
+          },
+          "VI0ngEbQISu3XrZX": {
+            "name": "Pixel B",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.12",
+            "sas": true,
+            "revoked": false
+          },
+          "kDmP6N40pmf2Vk_u": {
+            "name": "PC D",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.22",
+            "sas": false,
+            "revoked": false
+          }
+        },
+        "acl": {
+          "phones": {},
+          "computers": {}
+        },
+        "realms": {
+          "ooEBPKJdAOHvYxPS": {
+            "epoch": 1,
+            "kids": {
+              "1": "w2wXghhz29ZFZPAJSl9Row"
+            }
+          },
+          "kDmP6N40pmf2Vk_u": {
+            "epoch": 1,
+            "kids": {
+              "1": "3db19LJJSmJAjya1D9_ztw"
+            }
+          }
+        }
+      },
+      {
+        "acct": "u_test0001",
+        "seq": 7,
+        "head": {
+          "seq": 7,
+          "h": "2HNckq0TyEIHxnY9ZSfxvws-FwhzEMM7fg-uikg1MJ8"
+        },
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "devices": {
+          "w1bzP7i5sMuhcmSd": {
+            "name": "iPhone A",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.11",
+            "sas": null,
+            "revoked": false
+          },
+          "ooEBPKJdAOHvYxPS": {
+            "name": "MacBook C",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.21",
+            "sas": true,
+            "revoked": false
+          },
+          "VI0ngEbQISu3XrZX": {
+            "name": "Pixel B",
+            "kind": "phone",
+            "admin": false,
+            "addr": "100.64.0.12",
+            "sas": true,
+            "revoked": false
+          },
+          "kDmP6N40pmf2Vk_u": {
+            "name": "PC D",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.22",
+            "sas": false,
+            "revoked": false
+          }
+        },
+        "acl": {
+          "phones": {
+            "VI0ngEbQISu3XrZX": {
+              "computers": [
+                "ooEBPKJdAOHvYxPS"
+              ],
+              "control": false
+            }
+          },
+          "computers": {}
+        },
+        "realms": {
+          "ooEBPKJdAOHvYxPS": {
+            "epoch": 1,
+            "kids": {
+              "1": "w2wXghhz29ZFZPAJSl9Row"
+            }
+          },
+          "kDmP6N40pmf2Vk_u": {
+            "epoch": 1,
+            "kids": {
+              "1": "3db19LJJSmJAjya1D9_ztw"
+            }
+          }
+        }
+      },
+      {
+        "acct": "u_test0001",
+        "seq": 8,
+        "head": {
+          "seq": 8,
+          "h": "-NFsS_U4fP2meW5DuJE9DPOFnbOvVHDGBsQkP9wwhsU"
+        },
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "devices": {
+          "w1bzP7i5sMuhcmSd": {
+            "name": "iPhone A",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.11",
+            "sas": null,
+            "revoked": false
+          },
+          "ooEBPKJdAOHvYxPS": {
+            "name": "MacBook C",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.21",
+            "sas": true,
+            "revoked": false
+          },
+          "VI0ngEbQISu3XrZX": {
+            "name": "Pixel B",
+            "kind": "phone",
+            "admin": false,
+            "addr": "100.64.0.12",
+            "sas": true,
+            "revoked": true
+          },
+          "kDmP6N40pmf2Vk_u": {
+            "name": "PC D",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.22",
+            "sas": false,
+            "revoked": false
+          }
+        },
+        "acl": {
+          "phones": {
+            "VI0ngEbQISu3XrZX": {
+              "computers": [
+                "ooEBPKJdAOHvYxPS"
+              ],
+              "control": false
+            }
+          },
+          "computers": {}
+        },
+        "realms": {
+          "ooEBPKJdAOHvYxPS": {
+            "epoch": 1,
+            "kids": {
+              "1": "w2wXghhz29ZFZPAJSl9Row"
+            }
+          },
+          "kDmP6N40pmf2Vk_u": {
+            "epoch": 1,
+            "kids": {
+              "1": "3db19LJJSmJAjya1D9_ztw"
+            }
+          }
+        }
+      },
+      {
+        "acct": "u_test0001",
+        "seq": 9,
+        "head": {
+          "seq": 9,
+          "h": "O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA"
+        },
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "devices": {
+          "w1bzP7i5sMuhcmSd": {
+            "name": "iPhone A",
+            "kind": "phone",
+            "admin": true,
+            "addr": "100.64.0.11",
+            "sas": null,
+            "revoked": false
+          },
+          "ooEBPKJdAOHvYxPS": {
+            "name": "MacBook C",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.21",
+            "sas": true,
+            "revoked": false
+          },
+          "VI0ngEbQISu3XrZX": {
+            "name": "Pixel B",
+            "kind": "phone",
+            "admin": false,
+            "addr": "100.64.0.12",
+            "sas": true,
+            "revoked": true
+          },
+          "kDmP6N40pmf2Vk_u": {
+            "name": "PC D",
+            "kind": "computer",
+            "admin": true,
+            "addr": "100.64.0.22",
+            "sas": false,
+            "revoked": false
+          }
+        },
+        "acl": {
+          "phones": {
+            "VI0ngEbQISu3XrZX": {
+              "computers": [
+                "ooEBPKJdAOHvYxPS"
+              ],
+              "control": false
+            }
+          },
+          "computers": {}
+        },
+        "realms": {
+          "ooEBPKJdAOHvYxPS": {
+            "epoch": 2,
+            "kids": {
+              "1": "w2wXghhz29ZFZPAJSl9Row",
+              "2": "D9-8leMZYHMMJkxDrqkZxg"
+            }
+          },
+          "kDmP6N40pmf2Vk_u": {
+            "epoch": 1,
+            "kids": {
+              "1": "3db19LJJSmJAjya1D9_ztw"
+            }
+          }
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "name": "first statement is not genesis",
+        "prefix": 0,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjoxLCJwcmV2IjpudWxsLCJ0cyI6MTc5MTQxNzY2MDAwMCwiYnkiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwib3AiOnsidHlwZSI6ImFkZCIsImRldmljZSI6eyJpZCI6IlZJMG5nRWJRSVN1M1hyWlgiLCJraW5kIjoicGhvbmUiLCJwbGF0Zm9ybSI6ImFuZHJvaWQiLCJuYW1lIjoiUGl4ZWwgQiIsImFkZHIiOiIxMDAuNjQuMC4xMiIsInNpZyI6IkJONDlRcVhWZkk1YVkxSUF1QldfcGUzbkQ1czQyZTJWNldlWHRxLUI3NE95OHBPN3J4SDlKVlFhaXNwSXFUTTRtcnZkc3VDUXJ4cW1WN0UtSUdYY3lLRSIsImt4IjoiQkJCa1B4WWtwcnhhZlhvSmFsX05QczN6aGhVMkNjRGFVcV8xOTFPRENXd2d4Q1ozb25yaGVYbGp1dm5WdnYzei15ckpaRW5RaTNiNm42ZWxrSUw3NnVvIiwiYWRtaW4iOnRydWV9LCJzYXMiOnRydWV9fQ",
+          "s": "zYZOR95vgR7u3RZ4F37tv4SHIuzds6YCWhUVQuMUcOKwr3vm-pyqHX0tXIhZrRyh0ugB8MHYx73y5rz5P27c8g"
+        },
+        "error": "not-genesis"
+      },
+      {
+        "name": "genesis after the first statement",
+        "prefix": 1,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjoyLCJwcmV2Ijoic0NEQUh5Y0V0a1F4dkxWMHBzNHRtU25PNWZjWmU3Sm1FTmJUOUwxYXd4cyIsInRzIjoxNzkxNDE3NzIwMDAwLCJieSI6IlZJMG5nRWJRSVN1M1hyWlgiLCJvcCI6eyJ0eXBlIjoiZ2VuZXNpcyIsImRldmljZSI6eyJpZCI6IlZJMG5nRWJRSVN1M1hyWlgiLCJraW5kIjoicGhvbmUiLCJwbGF0Zm9ybSI6ImFuZHJvaWQiLCJuYW1lIjoiUGl4ZWwgQiIsImFkZHIiOiIxMDAuNjQuMC4xMiIsInNpZyI6IkJONDlRcVhWZkk1YVkxSUF1QldfcGUzbkQ1czQyZTJWNldlWHRxLUI3NE95OHBPN3J4SDlKVlFhaXNwSXFUTTRtcnZkc3VDUXJ4cW1WN0UtSUdYY3lLRSIsImt4IjoiQkJCa1B4WWtwcnhhZlhvSmFsX05QczN6aGhVMkNjRGFVcV8xOTFPRENXd2d4Q1ozb25yaGVYbGp1dm5WdnYzei15ckpaRW5RaTNiNm42ZWxrSUw3NnVvIiwiYWRtaW4iOnRydWV9fX0",
+          "s": "cIzCavZpVzCZjzDlHl0WopGEM4k09JmwReZ0wEY5UWRyG_zUwBYaLDE8ok2OYVIv01aD522drGvlBNv8C3aMjQ"
+        },
+        "error": "bad-op"
+      },
+      {
+        "name": "statement for another account",
+        "prefix": 1,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X290aGVyMDAwMSIsInNlcSI6MiwicHJldiI6InNDREFIeWNFdGtReHZMVjBwczR0bVNuTzVmY1plN0ptRU5iVDlMMWF3eHMiLCJ0cyI6MTc5MTQxNzcyMDAwMCwiYnkiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwib3AiOnsidHlwZSI6ImFkZCIsImRldmljZSI6eyJpZCI6IlZJMG5nRWJRSVN1M1hyWlgiLCJraW5kIjoicGhvbmUiLCJwbGF0Zm9ybSI6ImFuZHJvaWQiLCJuYW1lIjoiUGl4ZWwgQiIsImFkZHIiOiIxMDAuNjQuMC4xMiIsInNpZyI6IkJONDlRcVhWZkk1YVkxSUF1QldfcGUzbkQ1czQyZTJWNldlWHRxLUI3NE95OHBPN3J4SDlKVlFhaXNwSXFUTTRtcnZkc3VDUXJ4cW1WN0UtSUdYY3lLRSIsImt4IjoiQkJCa1B4WWtwcnhhZlhvSmFsX05QczN6aGhVMkNjRGFVcV8xOTFPRENXd2d4Q1ozb25yaGVYbGp1dm5WdnYzei15ckpaRW5RaTNiNm42ZWxrSUw3NnVvIiwiYWRtaW4iOnRydWV9LCJzYXMiOnRydWV9fQ",
+          "s": "T0zfH13CeFvO2ElamMnc1T45tP1gnlJSoYJ0Syrfp5n7Rh4Oo5IVHu7pCbPGZPKEmUqz6wbwDWzR86XP3tZjeg"
+        },
+        "error": "bad-acct"
+      },
+      {
+        "name": "sequence number skips",
+        "prefix": 2,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo1LCJwcmV2IjoiaElQcVFCNGctRy1rb2JqU3VZYTRlUTEyanpPSmhQdmI5emw1U0J0MWNxWSIsInRzIjoxNzkxNDE3NzgwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiVkkwbmdFYlFJU3UzWHJaWCIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiYW5kcm9pZCIsIm5hbWUiOiJQaXhlbCBCIiwiYWRkciI6IjEwMC42NC4wLjEyIiwic2lnIjoiQk40OVFxWFZmSTVhWTFJQXVCV19wZTNuRDVzNDJlMlY2V2VYdHEtQjc0T3k4cE83cnhIOUpWUWFpc3BJcVRNNG1ydmRzdUNRcnhxbVY3RS1JR1hjeUtFIiwia3giOiJCQkJrUHhZa3ByeGFmWG9KYWxfTlBzM3poaFUyQ2NEYVVxXzE5MU9EQ1d3Z3hDWjNvbnJoZVhsanV2blZ2djN6LXlySlpFblFpM2I2bjZlbGtJTDc2dW8iLCJhZG1pbiI6dHJ1ZX0sInNhcyI6dHJ1ZX19",
+          "s": "5Zc_0_DygS4HTAikN3XVcVUepTziA7FVCQFbRR_GNTrj8BPRsRrbmtHRcNCnNR6ZhQc9jfklmLc--OqO_j2M-w"
+        },
+        "error": "bad-seq"
+      },
+      {
+        "name": "prev does not match head",
+        "prefix": 2,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjozLCJwcmV2IjoiTFhFV1FyY21zRVFCWW55cC02d3k5Y2hURDdHUVBNVGJBaVdIRjVJYVNJRSIsInRzIjoxNzkxNDE3NzgwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiVkkwbmdFYlFJU3UzWHJaWCIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiYW5kcm9pZCIsIm5hbWUiOiJQaXhlbCBCIiwiYWRkciI6IjEwMC42NC4wLjEyIiwic2lnIjoiQk40OVFxWFZmSTVhWTFJQXVCV19wZTNuRDVzNDJlMlY2V2VYdHEtQjc0T3k4cE83cnhIOUpWUWFpc3BJcVRNNG1ydmRzdUNRcnhxbVY3RS1JR1hjeUtFIiwia3giOiJCQkJrUHhZa3ByeGFmWG9KYWxfTlBzM3poaFUyQ2NEYVVxXzE5MU9EQ1d3Z3hDWjNvbnJoZVhsanV2blZ2djN6LXlySlpFblFpM2I2bjZlbGtJTDc2dW8iLCJhZG1pbiI6dHJ1ZX0sInNhcyI6dHJ1ZX19",
+          "s": "5UL5Bp304LOQmf5x34fEeQ91yP4RVFbwe1EF34D-EADHUERkP-jI0ECY13VnRza6A9WiqGg1OnRvUnTRd_X6JQ"
+        },
+        "error": "bad-prev"
+      },
+      {
+        "name": "signature by a different key",
+        "prefix": 2,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjozLCJwcmV2IjoiaElQcVFCNGctRy1rb2JqU3VZYTRlUTEyanpPSmhQdmI5emw1U0J0MWNxWSIsInRzIjoxNzkxNDE3NzgwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiVkkwbmdFYlFJU3UzWHJaWCIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiYW5kcm9pZCIsIm5hbWUiOiJQaXhlbCBCIiwiYWRkciI6IjEwMC42NC4wLjEyIiwic2lnIjoiQk40OVFxWFZmSTVhWTFJQXVCV19wZTNuRDVzNDJlMlY2V2VYdHEtQjc0T3k4cE83cnhIOUpWUWFpc3BJcVRNNG1ydmRzdUNRcnhxbVY3RS1JR1hjeUtFIiwia3giOiJCQkJrUHhZa3ByeGFmWG9KYWxfTlBzM3poaFUyQ2NEYVVxXzE5MU9EQ1d3Z3hDWjNvbnJoZVhsanV2blZ2djN6LXlySlpFblFpM2I2bjZlbGtJTDc2dW8iLCJhZG1pbiI6dHJ1ZX0sInNhcyI6dHJ1ZX19",
+          "s": "ca2664bVPLCCEXVA23SNE2u6OtXcxQHCtG6gHhzZw4DIo0_Q7z9nhq85wnZMSjgd7y0qU34rX3KnsmcrFOH7Cw"
+        },
+        "error": "bad-sig"
+      },
+      {
+        "name": "signer is not in the lock",
+        "prefix": 2,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjozLCJwcmV2IjoiaElQcVFCNGctRy1rb2JqU3VZYTRlUTEyanpPSmhQdmI5emw1U0J0MWNxWSIsInRzIjoxNzkxNDE3NzgwMDAwLCJieSI6ImhWNnlsVnVJVjkxODdVMy0iLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiVkkwbmdFYlFJU3UzWHJaWCIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiYW5kcm9pZCIsIm5hbWUiOiJQaXhlbCBCIiwiYWRkciI6IjEwMC42NC4wLjEyIiwic2lnIjoiQk40OVFxWFZmSTVhWTFJQXVCV19wZTNuRDVzNDJlMlY2V2VYdHEtQjc0T3k4cE83cnhIOUpWUWFpc3BJcVRNNG1ydmRzdUNRcnhxbVY3RS1JR1hjeUtFIiwia3giOiJCQkJrUHhZa3ByeGFmWG9KYWxfTlBzM3poaFUyQ2NEYVVxXzE5MU9EQ1d3Z3hDWjNvbnJoZVhsanV2blZ2djN6LXlySlpFblFpM2I2bjZlbGtJTDc2dW8iLCJhZG1pbiI6dHJ1ZX0sInNhcyI6dHJ1ZX19",
+          "s": "hqzM9RX0wYXPfV2vLTxYZnI1OwUE3aFlLhoSBMbau1dSLZJ21mcyHoABpJqeUMsQZ4QEjLzUABM8Dxcx2VLoBA"
+        },
+        "error": "unknown-signer"
+      },
+      {
+        "name": "signer was revoked",
+        "prefix": 8,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo5LCJwcmV2IjoiLU5Gc1NfVTRmUDJtZVc1RHVKRTlEUE9GbmJPdlZIREdCc1FrUDl3d2hzVSIsInRzIjoxNzkxNDE4MTQwMDAwLCJieSI6IlZJMG5nRWJRSVN1M1hyWlgiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiaFY2eWxWdUlWOTE4N1UzLSIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiaW9zIiwibmFtZSI6IkV2aWwiLCJhZGRyIjoiMTAwLjY0LjAuOTkiLCJzaWciOiJCRDNnVXlxV251TTJPbmpzMElJdlVsbklNRU05dEo3OHdpX080MVFBTGVVaUdZQzJvTFE5YkRGdllCYVhCMWNwVVItaHZyekZUeENsektveXYzbjFiSE0iLCJreCI6IkJOdmNXcWhUa1NjZkpkWVJQMXVadEhucXBTajgzWFl1QjVGSjNIV01fXzllcUx6VEZZZTBEemplczY5c29sOF9lOTd5VkdySXpNOFpYWHAtTTJJZVdISSIsImFkbWluIjp0cnVlfSwic2FzIjp0cnVlfX0",
+          "s": "vbGTXYrXE5stWWEu3z6ZigDQyFQ2AXv9V6MA83p1vPGVQrlSkTUDElB65fdmhjeS0OZdNup-Hh8y3MlVS9QAWQ"
+        },
+        "error": "revoked-signer"
+      },
+      {
+        "name": "non-admin adds a device",
+        "prefix": 7,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo4LCJwcmV2IjoiMkhOY2txMFR5RUlIeG5ZOVpTZnh2d3MtRndoekVNTTdmZy11aWtnMU1KOCIsInRzIjoxNzkxNDE4MDgwMDAwLCJieSI6IlZJMG5nRWJRSVN1M1hyWlgiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiaFY2eWxWdUlWOTE4N1UzLSIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiaW9zIiwibmFtZSI6IkV2aWwiLCJhZGRyIjoiMTAwLjY0LjAuOTkiLCJzaWciOiJCRDNnVXlxV251TTJPbmpzMElJdlVsbklNRU05dEo3OHdpX080MVFBTGVVaUdZQzJvTFE5YkRGdllCYVhCMWNwVVItaHZyekZUeENsektveXYzbjFiSE0iLCJreCI6IkJOdmNXcWhUa1NjZkpkWVJQMXVadEhucXBTajgzWFl1QjVGSjNIV01fXzllcUx6VEZZZTBEemplczY5c29sOF9lOTd5VkdySXpNOFpYWHAtTTJJZVdISSIsImFkbWluIjp0cnVlfSwic2FzIjp0cnVlfX0",
+          "s": "egLIAVsq6lTuyGM1FJv4GyFj6AQXaG_ayf8n4AhB1hThgVsYy_amhB2CWNsj25Kv3SrAEHR8MaoxsXASA3B_qg"
+        },
+        "error": "not-admin"
+      },
+      {
+        "name": "phone writes a realm epoch for a computer",
+        "prefix": 3,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo0LCJwcmV2IjoibmJ4SWRtSU9zNUM2dEtxUndKWEZlYXFrZXFxMS12MWJTN1o5cXplMDlEbyIsInRzIjoxNzkxNDE3ODQwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoicmVhbG0iLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwia2lkIjoiRDktOGxlTVpZSE1NSmt4RHJxa1p4ZyIsInJlYXNvbiI6InJvdGF0ZSJ9fQ",
+          "s": "X-WtKBWOa41TOhfScrstuDdLKtwaw6J5RwweEkyoXJ3xfn1kUR1ygOV6AlUBHkjZq7qtifsTZS5jcE9VPqmJAQ"
+        },
+        "error": "not-owner"
+      },
+      {
+        "name": "realm epoch skips",
+        "prefix": 3,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo0LCJwcmV2IjoibmJ4SWRtSU9zNUM2dEtxUndKWEZlYXFrZXFxMS12MWJTN1o5cXplMDlEbyIsInRzIjoxNzkxNDE3ODQwMDAwLCJieSI6Im9vRUJQS0pkQU9Idll4UFMiLCJvcCI6eyJ0eXBlIjoicmVhbG0iLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Mywia2lkIjoiRDktOGxlTVpZSE1NSmt4RHJxa1p4ZyIsInJlYXNvbiI6InJvdGF0ZSJ9fQ",
+          "s": "ragZePIdc0YB7TU2POdm5HoLceuF1EspdKzQyGlwfz1uJ-PXMgTnfVYkbGgzKpdtETy1moUPv7Pnf2Jg4darTg"
+        },
+        "error": "bad-epoch"
+      },
+      {
+        "name": "device added twice",
+        "prefix": 4,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo1LCJwcmV2IjoiMlR6YkxDQTFJTXZjR3g4Qk4tZnFBdkJNY1BaSGxoZUsyb21UclNUSzZERSIsInRzIjoxNzkxNDE3OTAwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiVkkwbmdFYlFJU3UzWHJaWCIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiYW5kcm9pZCIsIm5hbWUiOiJQaXhlbCBCIiwiYWRkciI6IjEwMC42NC4wLjEyIiwic2lnIjoiQk40OVFxWFZmSTVhWTFJQXVCV19wZTNuRDVzNDJlMlY2V2VYdHEtQjc0T3k4cE83cnhIOUpWUWFpc3BJcVRNNG1ydmRzdUNRcnhxbVY3RS1JR1hjeUtFIiwia3giOiJCQkJrUHhZa3ByeGFmWG9KYWxfTlBzM3poaFUyQ2NEYVVxXzE5MU9EQ1d3Z3hDWjNvbnJoZVhsanV2blZ2djN6LXlySlpFblFpM2I2bjZlbGtJTDc2dW8iLCJhZG1pbiI6dHJ1ZX0sInNhcyI6dHJ1ZX19",
+          "s": "dIKfqJwLb3J770cuzQSaYnJ4lIRNsNcGNAg0qJ4bFPB2Ob_4ikg95XWduc-JzxQpjyJuHmil4eusf3GReN1bhw"
+        },
+        "error": "dup-device"
+      },
+      {
+        "name": "address already in use",
+        "prefix": 2,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjozLCJwcmV2IjoiaElQcVFCNGctRy1rb2JqU3VZYTRlUTEyanpPSmhQdmI5emw1U0J0MWNxWSIsInRzIjoxNzkxNDE3NzgwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiVkkwbmdFYlFJU3UzWHJaWCIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiYW5kcm9pZCIsIm5hbWUiOiJQaXhlbCBCIiwiYWRkciI6IjEwMC42NC4wLjIxIiwic2lnIjoiQk40OVFxWFZmSTVhWTFJQXVCV19wZTNuRDVzNDJlMlY2V2VYdHEtQjc0T3k4cE83cnhIOUpWUWFpc3BJcVRNNG1ydmRzdUNRcnhxbVY3RS1JR1hjeUtFIiwia3giOiJCQkJrUHhZa3ByeGFmWG9KYWxfTlBzM3poaFUyQ2NEYVVxXzE5MU9EQ1d3Z3hDWjNvbnJoZVhsanV2blZ2djN6LXlySlpFblFpM2I2bjZlbGtJTDc2dW8iLCJhZG1pbiI6dHJ1ZX0sInNhcyI6dHJ1ZX19",
+          "s": "5_HWRUH8XNoGo9hAoh-pExG0u-pI69A0YEgugoZizTZVxzyqHwfpSQB0tVEAs7hM_9T-_Q3H6qpDK3tqEU52fQ"
+        },
+        "error": "dup-addr"
+      },
+      {
+        "name": "device id does not match its keys",
+        "prefix": 2,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjozLCJwcmV2IjoiaElQcVFCNGctRy1rb2JqU3VZYTRlUTEyanpPSmhQdmI5emw1U0J0MWNxWSIsInRzIjoxNzkxNDE3NzgwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoiYWRkIiwiZGV2aWNlIjp7ImlkIjoiaFY2eWxWdUlWOTE4N1UzLSIsImtpbmQiOiJwaG9uZSIsInBsYXRmb3JtIjoiYW5kcm9pZCIsIm5hbWUiOiJQaXhlbCBCIiwiYWRkciI6IjEwMC42NC4wLjEyIiwic2lnIjoiQk40OVFxWFZmSTVhWTFJQXVCV19wZTNuRDVzNDJlMlY2V2VYdHEtQjc0T3k4cE83cnhIOUpWUWFpc3BJcVRNNG1ydmRzdUNRcnhxbVY3RS1JR1hjeUtFIiwia3giOiJCQkJrUHhZa3ByeGFmWG9KYWxfTlBzM3poaFUyQ2NEYVVxXzE5MU9EQ1d3Z3hDWjNvbnJoZVhsanV2blZ2djN6LXlySlpFblFpM2I2bjZlbGtJTDc2dW8iLCJhZG1pbiI6dHJ1ZX0sInNhcyI6dHJ1ZX19",
+          "s": "rsj4u16qYpx6e5ktAT01HOXE7gjpIepr3BOcNWWEk3a3rJM8Yj1V0Jr_Q7fM9FSHHHSQPDIPOz4XFCmN9Zxsgg"
+        },
+        "error": "bad-device"
+      },
+      {
+        "name": "policy names a computer as a phone",
+        "prefix": 4,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjo1LCJwcmV2IjoiMlR6YkxDQTFJTXZjR3g4Qk4tZnFBdkJNY1BaSGxoZUsyb21UclNUSzZERSIsInRzIjoxNzkxNDE3OTAwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoicG9saWN5IiwiYWNsIjp7InBob25lcyI6eyJvb0VCUEtKZEFPSHZZeFBTIjp7ImNvbXB1dGVycyI6IioifX19fX0",
+          "s": "rw-8Hphv-4X-dNUCeflKj325REk0QMLVPr23htqfdytqaqLrJwKI0mrscVnVDajDP6FF-OEgzu1iJoWqhTYqaQ"
+        },
+        "error": "bad-acl"
+      },
+      {
+        "name": "revoking the last admin",
+        "prefix": 1,
+        "statement": {
+          "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjoyLCJwcmV2Ijoic0NEQUh5Y0V0a1F4dkxWMHBzNHRtU25PNWZjWmU3Sm1FTmJUOUwxYXd4cyIsInRzIjoxNzkxNDE3NzIwMDAwLCJieSI6IncxYnpQN2k1c011aGNtU2QiLCJvcCI6eyJ0eXBlIjoicmV2b2tlIiwiZGV2aWNlIjoidzFielA3aTVzTXVoY21TZCJ9fQ",
+          "s": "oMxDTt6EIXb5O__UP7QEMUJzLQAlOeOk2ITsAqEidZorUV3sSQaXLoYGSLnFAlO4DPU0eIuOjiwJrQ-XtuG9aA"
+        },
+        "error": "last-admin"
+      }
+    ],
+    "reset": {
+      "statement": {
+        "p": "eyJ2IjoxLCJ0IjoibG9jayIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2VxIjoxLCJwcmV2IjpudWxsLCJ0cyI6MTc5MTQxNzY2MDAwMCwiYnkiOiJvb0VCUEtKZEFPSHZZeFBTIiwib3AiOnsidHlwZSI6ImdlbmVzaXMiLCJkZXZpY2UiOnsiaWQiOiJvb0VCUEtKZEFPSHZZeFBTIiwia2luZCI6ImNvbXB1dGVyIiwicGxhdGZvcm0iOiJtYWMiLCJuYW1lIjoiTWFjQm9vayBDIiwiYWRkciI6IjEwMC42NC4wLjIxIiwic2lnIjoiQkdWZXN4a19rWHptTUQ2MVdydl9EWThTTWJRcE43U3loa21GX3pVOVM1VDNhY05TbFViUXZ5ZmJoUk9WM0hYekN0UGhCVl8zNmpxZWtMVkZYNXI0THQ4Iiwia3giOiJCTEJmazVoMUVVbzZqY1l5WnlISmdJeTdnVV9KNTBIbjUzNzhhaUNvZ2R1MnJMMDJNSG1hcEFYQ2JWQmQ1NFBmc1J3aUVUR3RIS1hSaW9tYzl2eVFWYU0iLCJhZG1pbiI6dHJ1ZX0sInJlc2V0T2YiOnsiZ2VuZXNpcyI6InNDREFIeWNFdGtReHZMVjBwczR0bVNuTzVmY1plN0ptRU5iVDlMMWF3eHMiLCJzZXEiOjksImgiOiJPMFRHcFY0WnVIZnRSc1lTT2NlV0NvRnAxRUZfa2cwc09kckNPYTdCMW1BIn19fQ",
+        "s": "IgxUTB6cWrfP89iOQrzMamU0enUSk8q3X9YcHr6v8lKC3G5DnlToN6rS9tu8rJXYuJM8WKo1kzoZ94RSJdWiVg"
+      },
+      "resetsGenesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+      "newGenesis": "JjkQ9qprBvu8WE9EbqfcDi-xCa7lzp6r3tZU1zhzrZY"
+    }
+  },
+  "acl": {
+    "fromChain": [
+      {
+        "state": "after policy (statement 7)",
+        "prefix": 7,
+        "phone": "phoneA",
+        "computer": "computerC",
+        "read": true,
+        "control": true
+      },
+      {
+        "state": "after policy (statement 7)",
+        "prefix": 7,
+        "phone": "phoneA",
+        "computer": "computerD",
+        "read": true,
+        "control": true
+      },
+      {
+        "state": "after policy (statement 7)",
+        "prefix": 7,
+        "phone": "phoneB",
+        "computer": "computerC",
+        "read": true,
+        "control": false
+      },
+      {
+        "state": "after policy (statement 7)",
+        "prefix": 7,
+        "phone": "phoneB",
+        "computer": "computerD",
+        "read": false,
+        "control": false
+      },
+      {
+        "state": "final (statement 9)",
+        "prefix": 9,
+        "phone": "phoneA",
+        "computer": "computerC",
+        "read": true,
+        "control": true
+      },
+      {
+        "state": "final (statement 9)",
+        "prefix": 9,
+        "phone": "phoneA",
+        "computer": "computerD",
+        "read": true,
+        "control": true
+      },
+      {
+        "state": "final (statement 9)",
+        "prefix": 9,
+        "phone": "phoneB",
+        "computer": "computerC",
+        "read": false,
+        "control": false
+      },
+      {
+        "state": "final (statement 9)",
+        "prefix": 9,
+        "phone": "phoneB",
+        "computer": "computerD",
+        "read": false,
+        "control": false
+      }
+    ],
+    "documents": [
+      {
+        "acl": {
+          "phones": {},
+          "computers": {}
+        },
+        "results": [
+          {
+            "phone": "phoneA",
+            "computer": "computerC",
+            "read": true,
+            "control": true
+          },
+          {
+            "phone": "phoneA",
+            "computer": "computerD",
+            "read": true,
+            "control": true
+          },
+          {
+            "phone": "phoneB",
+            "computer": "computerC",
+            "read": true,
+            "control": true
+          },
+          {
+            "phone": "phoneB",
+            "computer": "computerD",
+            "read": true,
+            "control": true
+          }
+        ]
+      },
+      {
+        "acl": {
+          "phones": {
+            "w1bzP7i5sMuhcmSd": {
+              "computers": [
+                "kDmP6N40pmf2Vk_u"
+              ]
+            }
+          },
+          "computers": {}
+        },
+        "results": [
+          {
+            "phone": "phoneA",
+            "computer": "computerC",
+            "read": false,
+            "control": false
+          },
+          {
+            "phone": "phoneA",
+            "computer": "computerD",
+            "read": true,
+            "control": true
+          },
+          {
+            "phone": "phoneB",
+            "computer": "computerC",
+            "read": true,
+            "control": true
+          },
+          {
+            "phone": "phoneB",
+            "computer": "computerD",
+            "read": true,
+            "control": true
+          }
+        ]
+      },
+      {
+        "acl": {
+          "phones": {},
+          "computers": {
+            "ooEBPKJdAOHvYxPS": {
+              "phones": [
+                "VI0ngEbQISu3XrZX"
+              ]
+            }
+          }
+        },
+        "results": [
+          {
+            "phone": "phoneA",
+            "computer": "computerC",
+            "read": false,
+            "control": false
+          },
+          {
+            "phone": "phoneA",
+            "computer": "computerD",
+            "read": true,
+            "control": true
+          },
+          {
+            "phone": "phoneB",
+            "computer": "computerC",
+            "read": true,
+            "control": true
+          },
+          {
+            "phone": "phoneB",
+            "computer": "computerD",
+            "read": true,
+            "control": true
+          }
+        ]
+      },
+      {
+        "acl": {
+          "phones": {
+            "VI0ngEbQISu3XrZX": {
+              "computers": "*",
+              "control": false
+            }
+          },
+          "computers": {
+            "kDmP6N40pmf2Vk_u": {
+              "phones": "*"
+            }
+          }
+        },
+        "results": [
+          {
+            "phone": "phoneA",
+            "computer": "computerC",
+            "read": true,
+            "control": true
+          },
+          {
+            "phone": "phoneA",
+            "computer": "computerD",
+            "read": true,
+            "control": true
+          },
+          {
+            "phone": "phoneB",
+            "computer": "computerC",
+            "read": true,
+            "control": false
+          },
+          {
+            "phone": "phoneB",
+            "computer": "computerD",
+            "read": true,
+            "control": false
+          }
+        ]
+      }
+    ]
+  },
+  "envelope": {
+    "valid": [
+      {
+        "name": "phone -> computer command",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJaMEtlaW1ES05PQm96aVdELVNyUVp3Iiwibm9uY2UiOiI5Sm1QUXhpM0xvWGZhXzhyIiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"Z0KeimDKNOBoziWD-SrQZw\",\"nonce\":\"9JmPQxi3LoXfa_8r\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "GCu1bz6RvuaYEruDD_hz_Jm_6V2Dr4HsG6D847Ikkg8vdi5fS5BfrYUi-QCjv4BxUrEJbYwAApWMEWklVsz2MfB4ALjMDdQx1IeQ25juMNK2HHlxAUjC1OcNmqg-E4wOX8jZgd0hLvROM3143BqAwZ4eL_6UQX3scChLIfMwQaWefTsSeFNCUe1y1GZ6bAWCmtA",
+          "s": "T8Lb4lmKWiZMdERdtp0dTfULiFQVc4_qHKUp2cHRuoNVvFbXOkB_mjfIthkSZYX9OwpBVkt6Kuamotd2LK_jkw"
+        },
+        "payload": {
+          "op": "dispatch",
+          "sessionId": "5f1c2a5e-8f2b-4c55-9b7e-6c0d7a2b9e10",
+          "text": "把 README 翻译成英文",
+          "dispatchId": "d_9k2m4x7q"
+        }
+      },
+      {
+        "name": "computer -> all phones event (deflate)",
+        "context": {
+          "prefix": 9,
+          "self": "phoneA",
+          "now": 1791417661000
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJLaElfZHQ5VFlMUEpINWhQTDJBY0ZBIiwibm9uY2UiOiIwR0N5d25zaUphVkNCWHRIIiwiZnJvbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJ0byI6IioiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDA3LCJ0cyI6MTc5MTQxNzY2MDAwMCwia2luZCI6ImV2dCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9LCJ6aXAiOiJkZWZsYXRlIn0",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"KhI_dt9TYLPJH5hPL2AcFA\",\"nonce\":\"0GCywnsiJaVCBXtH\",\"from\":\"ooEBPKJdAOHvYxPS\",\"to\":\"*\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400007,\"ts\":1791417660000,\"kind\":\"evt\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"},\"zip\":\"deflate\"}",
+          "c": "qOfbMaK25nTEidjUaAtXDvRlROKgnSEt9Qn0M5PlVwZiMpPzVPzyMSC-kJitCPX4YaUydjnFJMSZUvyE3uhsM6DK1TmxSyG6oQWvSJTsK3dVADWWkbXI6hkc6X-MLgJYweBWleTAOc8l5BmfTPnx0p7PTsLb3BL3xzqzGTZgQrj0tcx-c2Wc8eE_VqKm2FlorZ4dWmmTq8jzlWBpXo8uP8_zmMfLp7JsWHNUecW8gBM2bw",
+          "s": "80ansF1d44hKBsSz9sqxQz9-Xjddwxz569wTRen-yJgeN_IW4IxANJ3ANnTVfxVkasaHEoMhT314EjHR38C1_w"
+        },
+        "payload": {
+          "op": "notify",
+          "kind": "session_end",
+          "sessionId": "5f1c2a5e-8f2b-4c55-9b7e-6c0d7a2b9e10",
+          "state": "done",
+          "title": "翻译 README",
+          "body": "已完成",
+          "agent": "claude",
+          "host": "MacBook C"
+        }
+      },
+      {
+        "name": "computer -> phone result",
+        "context": {
+          "prefix": 9,
+          "self": "phoneA",
+          "now": 1791417604000
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJQczBCZm5EUTVDTEJqazNvUThIUVJBIiwibm9uY2UiOiJGb3pBdldVOVNJWTZ3aS1jIiwiZnJvbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJ0byI6IncxYnpQN2k1c011aGNtU2QiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDA4LCJ0cyI6MTc5MTQxNzYwMzUwMCwia2luZCI6InJlcyIsInJlIjoiWjBLZWltREtOT0JvemlXRC1TclFadyIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"Ps0BfnDQ5CLBjk3oQ8HQRA\",\"nonce\":\"FozAvWU9SIY6wi-c\",\"from\":\"ooEBPKJdAOHvYxPS\",\"to\":\"w1bzP7i5sMuhcmSd\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400008,\"ts\":1791417603500,\"kind\":\"res\",\"re\":\"Z0KeimDKNOBoziWD-SrQZw\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "lVXwjXByiLNREZCcQPAwGwjEa1oi_LrPBR5izqA7D5IQgqcf56Xku2oQuDUFJue-2g7r1s00TjUYDjL0Ciz8mVWJtHlp0hfwHHihVcgxv3gIg9696hWG56h92ooRSmVtlT8No_IP1ntZxQbImUKT5rt3E1rQivETedJ46Q",
+          "s": "Gjxkpr8PdRqifYWPN_7hS6ZP9BJ-Ie9T_lyp92MjCMagUZtVSYkSF3E10tBXKwVUJdpKXSJ2tN5CfvXVECw-WA"
+        },
+        "payload": {
+          "op": "result",
+          "ok": true,
+          "delivered": true,
+          "queued": false,
+          "sessionId": "5f1c2a5e-8f2b-4c55-9b7e-6c0d7a2b9e10"
+        }
+      },
+      {
+        "name": "read-only phone may send rpc",
+        "context": {
+          "prefix": 7,
+          "self": "computerC",
+          "now": 1791417602000
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJuUTRHaDBJcXVjWDBEbzdxOV9tMkZ3Iiwibm9uY2UiOiJTdUhYSTdzc29vR1ZSR205IiwiZnJvbSI6IlZJMG5nRWJRSVN1M1hyWlgiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6MSwic2VxIjoxODM0NDExNjIyNDAwMDAyLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6InJwYyIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"nQ4Gh0IqucX0Do7q9_m2Fw\",\"nonce\":\"SuHXI7ssooGVRGm9\",\"from\":\"VI0ngEbQISu3XrZX\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":1,\"seq\":1834411622400002,\"ts\":1791417601000,\"kind\":\"rpc\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "fhwTeK_fyBPhtB4B6oTtMZekdbaoRvJfgIfjCiN5EfMzLbwatbrZmozIgK8",
+          "s": "3xExEDUF-RTLy8ijnUfFvgyf6zFOkf8GaYTmCyFNmej0iIHulHTGOG2FWtrGqOWYDHeZP2TCyycCsuMT2A-9TA"
+        },
+        "payload": {
+          "op": "search",
+          "q": "README"
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "name": "ciphertext modified",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJaMEtlaW1ES05PQm96aVdELVNyUVp3Iiwibm9uY2UiOiI5Sm1QUXhpM0xvWGZhXzhyIiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"Z0KeimDKNOBoziWD-SrQZw\",\"nonce\":\"9JmPQxi3LoXfa_8r\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "GCu1bj6RvuaYEruDD_hz_Jm_6V2Dr4HsG6D847Ikkg8vdi5fS5BfrYUi-QCjv4BxUrEJbYwAApWMEWklVsz2MfB4ALjMDdQx1IeQ25juMNK2HHlxAUjC1OcNmqg-E4wOX8jZgd0hLvROM3143BqAwZ4eL_6UQX3scChLIfMwQaWefTsSeFNCUe1y1GZ6bAWCmtA",
+          "s": "T8Lb4lmKWiZMdERdtp0dTfULiFQVc4_qHKUp2cHRuoNVvFbXOkB_mjfIthkSZYX9OwpBVkt6Kuamotd2LK_jkw"
+        },
+        "error": "bad-sig"
+      },
+      {
+        "name": "signature modified",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJaMEtlaW1ES05PQm96aVdELVNyUVp3Iiwibm9uY2UiOiI5Sm1QUXhpM0xvWGZhXzhyIiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"Z0KeimDKNOBoziWD-SrQZw\",\"nonce\":\"9JmPQxi3LoXfa_8r\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "GCu1bz6RvuaYEruDD_hz_Jm_6V2Dr4HsG6D847Ikkg8vdi5fS5BfrYUi-QCjv4BxUrEJbYwAApWMEWklVsz2MfB4ALjMDdQx1IeQ25juMNK2HHlxAUjC1OcNmqg-E4wOX8jZgd0hLvROM3143BqAwZ4eL_6UQX3scChLIfMwQaWefTsSeFNCUe1y1GZ6bAWCmtA",
+          "s": "T8Lb4lmKWiZMdERdtp0dTfULiFQVc4_qHKUp2cHRuoNVvFbXOkB_mjbIthkSZYX9OwpBVkt6Kuamotd2LK_jkw"
+        },
+        "error": "bad-sig"
+      },
+      {
+        "name": "header modified after signing",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJaMEtlaW1ES05PQm96aVdELVNyUVp3Iiwibm9uY2UiOiI5Sm1QUXhpM0xvWGZhXzhyIiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjogMTgzNDQxMTYyMjQwMDAwMSwidHMiOjE3OTE0MTc2MDEwMDAsImtpbmQiOiJjbWQiLCJsb2NrIjp7InNlcSI6OSwiaCI6Ik8wVEdwVjRadUhmdFJzWVNPY2VXQ29GcDFFRl9rZzBzT2RyQ09hN0IxbUEifX0",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"Z0KeimDKNOBoziWD-SrQZw\",\"nonce\":\"9JmPQxi3LoXfa_8r\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\": 1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "GCu1bz6RvuaYEruDD_hz_Jm_6V2Dr4HsG6D847Ikkg8vdi5fS5BfrYUi-QCjv4BxUrEJbYwAApWMEWklVsz2MfB4ALjMDdQx1IeQ25juMNK2HHlxAUjC1OcNmqg-E4wOX8jZgd0hLvROM3143BqAwZ4eL_6UQX3scChLIfMwQaWefTsSeFNCUe1y1GZ6bAWCmtA",
+          "s": "T8Lb4lmKWiZMdERdtp0dTfULiFQVc4_qHKUp2cHRuoNVvFbXOkB_mjfIthkSZYX9OwpBVkt6Kuamotd2LK_jkw"
+        },
+        "error": "bad-sig"
+      },
+      {
+        "name": "addressed to another computer",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiI3aFppZnMtSnlrX3RUdklBQXZuLUdBIiwibm9uY2UiOiJoUGFkOHgwX1RTdGNJN1pDIiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6ImtEbVA2TjQwcG1mMlZrX3UiLCJyZWFsbSI6ImtEbVA2TjQwcG1mMlZrX3UiLCJlcG9jaCI6MSwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"7hZifs-Jyk_tTvIAAvn-GA\",\"nonce\":\"hPad8x0_TStcI7ZC\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"kDmP6N40pmf2Vk_u\",\"realm\":\"kDmP6N40pmf2Vk_u\",\"epoch\":1,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "UG4Siwg1eHkAPG42EOC7kceZj18mjsBUS7IT4jWlYki8lK281xtU-RWm65jU4GUxjXg7OmvQfDQ7cAbL_ucvJ_UWHi6fNzstXfYSfialSy2e4KC46pXzuz91wwK8JeJGSzK0MXNjYvAEtYkYAPYJqL1hpzBscOOWyRppxqXu9NH807iuEdcnKokhYyWZpPGlbVI",
+          "s": "pRLXIIsk-ZOYRtXpuAYWHnquMaiCyvRplb9VDkdfEVwxedAhnWZ0PG1e6Zu3OHl8QaAmXkmd2nnUhZHh2YFTTg"
+        },
+        "error": "not-for-me"
+      },
+      {
+        "name": "replayed sequence number",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400001
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJaMEtlaW1ES05PQm96aVdELVNyUVp3Iiwibm9uY2UiOiI5Sm1QUXhpM0xvWGZhXzhyIiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"Z0KeimDKNOBoziWD-SrQZw\",\"nonce\":\"9JmPQxi3LoXfa_8r\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "GCu1bz6RvuaYEruDD_hz_Jm_6V2Dr4HsG6D847Ikkg8vdi5fS5BfrYUi-QCjv4BxUrEJbYwAApWMEWklVsz2MfB4ALjMDdQx1IeQ25juMNK2HHlxAUjC1OcNmqg-E4wOX8jZgd0hLvROM3143BqAwZ4eL_6UQX3scChLIfMwQaWefTsSeFNCUe1y1GZ6bAWCmtA",
+          "s": "T8Lb4lmKWiZMdERdtp0dTfULiFQVc4_qHKUp2cHRuoNVvFbXOkB_mjfIthkSZYX9OwpBVkt6Kuamotd2LK_jkw"
+        },
+        "error": "replay"
+      },
+      {
+        "name": "command too old",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791418201001,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJaMEtlaW1ES05PQm96aVdELVNyUVp3Iiwibm9uY2UiOiI5Sm1QUXhpM0xvWGZhXzhyIiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"Z0KeimDKNOBoziWD-SrQZw\",\"nonce\":\"9JmPQxi3LoXfa_8r\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "GCu1bz6RvuaYEruDD_hz_Jm_6V2Dr4HsG6D847Ikkg8vdi5fS5BfrYUi-QCjv4BxUrEJbYwAApWMEWklVsz2MfB4ALjMDdQx1IeQ25juMNK2HHlxAUjC1OcNmqg-E4wOX8jZgd0hLvROM3143BqAwZ4eL_6UQX3scChLIfMwQaWefTsSeFNCUe1y1GZ6bAWCmtA",
+          "s": "T8Lb4lmKWiZMdERdtp0dTfULiFQVc4_qHKUp2cHRuoNVvFbXOkB_mjfIthkSZYX9OwpBVkt6Kuamotd2LK_jkw"
+        },
+        "error": "stale"
+      },
+      {
+        "name": "sender not in the lock",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJWMDJKVFo1M3pwaC1RQTJKRzktT2hBIiwibm9uY2UiOiJrQVhpeXl4QnZzMWpITWtQIiwiZnJvbSI6ImhWNnlsVnVJVjkxODdVMy0iLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"V02JTZ53zph-QA2JG9-OhA\",\"nonce\":\"kAXiyyxBvs1jHMkP\",\"from\":\"hV6ylVuIV9187U3-\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "zLmwo2l3tWqqNxwrpES5RRZxrtxLwBUL32B0_IbpUUCmVsp67yDbRYbNias5GXGnmX1e7o5TZjJNhPAlNc4XrCOoejnxA5muQAemb-xyVcTV--muvYq1KQoBOvvTq27v4uXwFr1uozIAz92BO7zWljdy6OLnxW9_Q2ZJKa7vzQiP3Iy83CRJaQvgehHo-7_Sd3M",
+          "s": "Um_JcoJAlBl5hf4UNauZhPFqVk5yJkV2S2yjqef7-1av8bfEbhZbtJn4Da7lzqc5fUIgWemriOj3-qpaWabpzg"
+        },
+        "error": "unknown-sender"
+      },
+      {
+        "name": "sender revoked",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJ6QWlIOTNQaEhuLW5oTVU5N09VaFpnIiwibm9uY2UiOiJwR1E3b21wbnpKZ3hVMU5WIiwiZnJvbSI6IlZJMG5nRWJRSVN1M1hyWlgiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6MSwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"zAiH93PhHn-nhMU97OUhZg\",\"nonce\":\"pGQ7ompnzJgxU1NV\",\"from\":\"VI0ngEbQISu3XrZX\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":1,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "Rk9ZwqUoV_rLheZSXfSMYI92tk1NoTNkD5PNA1Rc9U0OMgv_XouWCzt_ITUrwjZjbGHLZdCXbVEHjGSiX3LC8Cr8PzdToSiCMTb1DQfipnS_VGME5WAe0l6R9kNvGlFHxHwreWaUY6nFWgtBJRK_BJbNCMK1bx_No9HDzXClKMuH3tVQ6racCXqzl7r3Db_oPvk",
+          "s": "U1ZWudA-F00yjMRTphtOPTIyzNs_-9ouZ7QIP3UNHzVO6_Bzs1YJ8nU0rs7j77Zqbk_uaiIpEFVNJlju1sYkAg"
+        },
+        "error": "revoked-sender"
+      },
+      {
+        "name": "read-only phone sends a command",
+        "context": {
+          "prefix": 7,
+          "self": "computerC",
+          "now": 1791417603000
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJiMWFxOXVNbEg4WjFxMzc2T1JMVFVBIiwibm9uY2UiOiJva1cyTEFzWlJGUmloVnRxIiwiZnJvbSI6IlZJMG5nRWJRSVN1M1hyWlgiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6MSwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"b1aq9uMlH8Z1q376ORLTUA\",\"nonce\":\"okW2LAsZRFRihVtq\",\"from\":\"VI0ngEbQISu3XrZX\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":1,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "3ru8TZfVqtN_TxIKCAtDdLRjyLa1R6jArOc8lPfvNUhcqjODqtkT5PukL5hnKamcW4WG8VYYchF_HEInyaSMT11Xlax_D5EqrgdZPaHqERqgLCd4yhH2qxriCYEVehauFT6q5L4Gt20JwazYG--aQU2TpBEcVmicSK2g3GTpBipGfCQAikYw8sOr_0NUTAAehXs",
+          "s": "FswvU1Tjlw9QoBrg6YmKCyVw0SzhNLKdnJs6dgsPBuXQ7cN-fKYojVa9Om8OdyGWSR3cYvWfZp-iGrWxWqnrlw"
+        },
+        "error": "denied"
+      },
+      {
+        "name": "phone sends an event",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417600000
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJFSlVfS3JHd1I0LXEwV1Y1dVIweXJnIiwibm9uY2UiOiJZTDZvdS10WGhVUy1ZMTdnIiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6IioiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDAzLCJ0cyI6MTc5MTQxNzYwMDAwMCwia2luZCI6ImV2dCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"EJU_KrGwR4-q0WV5uR0yrg\",\"nonce\":\"YL6ou-tXhUS-Y17g\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"*\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400003,\"ts\":1791417600000,\"kind\":\"evt\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "ql-MPYt-_MUYzG4wBFLxP9A940NPIelaU61OFy8o_txfDnnFr_l1ipEQ02a3o1pMH4zuNe1Bge-XckvTuP1XRvgcQUm54SDC_d_pGlZJyMsS3MUvpKtzAZyKWK7_9aAmMP-tD7WFaHQoKC8Cl8Pum0KOuiXmVcAA2nBxWKDrXN8rG1-9z-huQPnx261jM0zk61DLs2oqweqLKkkUtbIDCf3MlsQ9CwDlYojzXr89DhG_5InUTKiBa6nGChBLIvbrmhKpj30",
+          "s": "76jFnWxkf_5JuSitqBfUKhRReg0WYAKuY_oYRzgZiFf3UIyJRON3hVoOXuFwvKdpwiRWDJsVe65OjOod_wCQRw"
+        },
+        "error": "denied"
+      },
+      {
+        "name": "unknown epoch",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiI4UDNscjFlaEZ4M0M3TlF4dTQ2RFZRIiwibm9uY2UiOiJZVDhqcXZBbzFDRXI4MnZlIiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Mywic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"8P3lr1ehFx3C7NQxu46DVQ\",\"nonce\":\"YT8jqvAo1CEr82ve\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":3,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "dqkSei7jjOZJcAMtcad4B22ZrdMhQuP8u0ccJKaXjBXKKEReF-GAOe4dsd2IDmsD-IYoCZ-ck6Jf1rJyHYBVF-8yLWqVpqV193FPS7JFZoyZhIdngC8Eo1HA66yLZykCwvBaL_AUseMwwFZ7JRZWwyw99JzE5oi7RCaAZloe1JU2nVeQLnFQV6S7D0KuQU7cCpQ",
+          "s": "Fjg61m2miOE7ghlC5iZ6GNnRDwH2CDOjJUuYGwcX90DAHyTR3DNhMLfFTKOc-DNMyv2_rQeV9s58Hx6j6EyrmA"
+        },
+        "error": "no-key"
+      },
+      {
+        "name": "encrypted under a key nobody granted",
+        "context": {
+          "prefix": 9,
+          "self": "computerC",
+          "now": 1791417603000,
+          "lastSeq": {
+            "phoneA": 1834411622400000
+          }
+        },
+        "envelope": {
+          "h": "eyJ2IjoxLCJ0IjoiZW52IiwiaWQiOiJxdnlPUUZHVU1BM3dkenc2N2kycVBnIiwibm9uY2UiOiJCb0x0elZXazB6dzQ4STA0IiwiZnJvbSI6IncxYnpQN2k1c011aGNtU2QiLCJ0byI6Im9vRUJQS0pkQU9Idll4UFMiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJlcG9jaCI6Miwic2VxIjoxODM0NDExNjIyNDAwMDAxLCJ0cyI6MTc5MTQxNzYwMTAwMCwia2luZCI6ImNtZCIsImxvY2siOnsic2VxIjo5LCJoIjoiTzBUR3BWNFp1SGZ0UnNZU09jZVdDb0ZwMUVGX2tnMHNPZHJDT2E3QjFtQSJ9fQ",
+          "hText": "{\"v\":1,\"t\":\"env\",\"id\":\"qvyOQFGUMA3wdzw67i2qPg\",\"nonce\":\"BoLtzVWk0zw48I04\",\"from\":\"w1bzP7i5sMuhcmSd\",\"to\":\"ooEBPKJdAOHvYxPS\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"epoch\":2,\"seq\":1834411622400001,\"ts\":1791417601000,\"kind\":\"cmd\",\"lock\":{\"seq\":9,\"h\":\"O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA\"}}",
+          "c": "v1j7AtXCpAtQ8HmxWoXKMLYl1ONAFBPrwfMs-ctcVldrr_yTFxm1aD5OEqHgkg7d76KZAJFcZEYSztRooxhyigrmP11zVXeqqheEILPvBKmISBRNGzjMSVwyY5aQafh_wRjatFzO-YLJds8sVivB-68sgcykzfRNphcPcajLBJnXQZdryCvapajBUt-oSdNaI68",
+          "s": "JN7OVOxcNx4xPR2Q2__D3VdvMnxVtpnfV9QcuH0NsUTycCJ6UaRXeQhpOWbhPMBi5CUhS_9o9LIZx7XprqJreA"
+        },
+        "error": "bad-tag"
+      }
+    ]
+  },
+  "object": {
+    "valid": [
+      {
+        "name": "message object (deflate)",
+        "context": {
+          "expect": {
+            "kind": "msg",
+            "key": "5hwtZanTlkeV0kY_Qiy6ug",
+            "seq": 7
+          }
+        },
+        "object": {
+          "h": "eyJ2IjoxLCJ0Ijoib2JqIiwiaWQiOiI4VWFfamZsbXcxU2VKdjNTUUZfMVVnIiwibm9uY2UiOiJDLS1HNGYtZTZQcjQyWmM2IiwicmVhbG0iOiJvb0VCUEtKZEFPSHZZeFBTIiwia2luZCI6Im1zZyIsImtleSI6IjVod3RaYW5UbGtlVjBrWV9RaXk2dWciLCJzZXEiOjcsInZlciI6NSwiZXBvY2giOjIsImJ5Ijoib29FQlBLSmRBT0h2WXhQUyIsInRzIjoxNzkxNDE3NzIwMDAwLCJ6aXAiOiJkZWZsYXRlIn0",
+          "hText": "{\"v\":1,\"t\":\"obj\",\"id\":\"8Ua_jflmw1SeJv3SQF_1Ug\",\"nonce\":\"C--G4f-e6Pr42Zc6\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"kind\":\"msg\",\"key\":\"5hwtZanTlkeV0kY_Qiy6ug\",\"seq\":7,\"ver\":5,\"epoch\":2,\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791417720000,\"zip\":\"deflate\"}",
+          "c": "NuByB-wWatIWWPn3llvkW5H5zDiUJErnQJGvqjDmRHiGWU53BDN8jVMyUy2RawBJSwlDP02cSjz29h9MXGSmiVDneTfz9K69OzniGpH50Kg3UhGfeC0YwxUhf9qCr4PSCEHgs9yv5Uxyuoa67HH3q1qnDEfeiEdSpvrEjMM35OAN_qThwZcGaXAPwhHs84YZ28Obcz8TiBh5KL8h4fNJzE2TrElQAe1eK8f-wWmR9_-nqs-8D6PljiTIm5-zl9w1BsiBn6fP_lHiWx_flJuV8eUb4iUY5RWMANJDF4xZ2wdG6GEmnGqyfwTUC5V5oW_1By9CJQrGeuMhQe3UXeOo7A15ckp3aO7an34av0qq_iJvwiNvNRKZR9LKn6Y8l57Pc7fsbnUEsoxLyQ2GxUVhxbW0rMlZevhGwXGp9bgtFRI0MvMbBwIsuEFHePF-6N9rQwx5ZSfINru5tKPuiJCIrPOKp5Cf-dL8PgCYxoa-0KTowg04VE0c3A",
+          "s": "6dMh1csxpm9hPbjVUB1Wal_g-aQtF5ivuZ5dg77_tvUMrqFRvyWEqDdl-Kvx6NFbeqpx9rQRPSOwpdmvqaCuOw"
+        },
+        "value": {
+          "seq": 7,
+          "role": "assistant",
+          "ts": 1791417720000,
+          "blocks": [
+            {
+              "kind": "text",
+              "text": "翻译好了,截图在下面。"
+            },
+            {
+              "kind": "tool",
+              "name": "Write",
+              "brief": "README.en.md",
+              "ok": true,
+              "ts": 1791417710000,
+              "result": "File written"
+            },
+            {
+              "kind": "attachment",
+              "name": "shot.png",
+              "mime": "image/png",
+              "bytes": 5,
+              "sha": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+              "blob": "9U_B-9Rw79jbOduup3poKg",
+              "key": "ao-ORaS_2rZahR2kjuYb2gv-sfEkhnXH44rd6tzZxEQ"
+            }
+          ]
+        }
+      },
+      {
+        "name": "session object",
+        "context": {
+          "expect": {
+            "kind": "sess",
+            "key": "5hwtZanTlkeV0kY_Qiy6ug"
+          }
+        },
+        "object": {
+          "h": "eyJ2IjoxLCJ0Ijoib2JqIiwiaWQiOiItSmN5c2xoM212V25FQV9UU090RExBIiwibm9uY2UiOiJadTI3NjBvbjRmZXF1Njh2IiwicmVhbG0iOiJvb0VCUEtKZEFPSHZZeFBTIiwia2luZCI6InNlc3MiLCJrZXkiOiI1aHd0WmFuVGxrZVYwa1lfUWl5NnVnIiwidmVyIjo5LCJlcG9jaCI6MiwiYnkiOiJvb0VCUEtKZEFPSHZZeFBTIiwidHMiOjE3OTE0MTc3MjAwMDB9",
+          "hText": "{\"v\":1,\"t\":\"obj\",\"id\":\"-Jcyslh3mvWnEA_TSOtDLA\",\"nonce\":\"Zu2760on4fequ68v\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"kind\":\"sess\",\"key\":\"5hwtZanTlkeV0kY_Qiy6ug\",\"ver\":9,\"epoch\":2,\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791417720000}",
+          "c": "ZTR06SJ_-PELd-H77EmwXu5mWzWBvmpqs7ep1ddzinBLqZY0DGJUVKo4ALz654ao4fYXH9xZCL0IhIUkZIvLRMzeaZM2jWjoFHNmz9oPvQlOiAgzy0A9aoHvVO-TnTxbqOzo8LVywJ6yu1bo4IPJ6nu3EXWyQ34Akkl6HRyFgwsHKiaAwEHa7Q8Btfrpb9MBJtFR9AclfL87ow1N0Q24YUvLKtilkj06h3_c8ccHPFSgr2I3NpyCSepq0KDjegTy_SaghlGcidaIM8_yAIgQDOKJkzL1AAFWg8VSAK-atpw",
+          "s": "RZ83KkuxDXR4xvCaQybJ-vIbZ6UdEeBNWiG95cw6GIe1wlxIZtY1fnG2yrm6J4fyv0eFxb8Xt3cGm9GecS_eFg"
+        },
+        "value": {
+          "id": "5f1c2a5e-8f2b-4c55-9b7e-6c0d7a2b9e10",
+          "xv": 4,
+          "title": "翻译 README",
+          "agent": "claude",
+          "host": "MacBook C",
+          "state": "done",
+          "lastSeq": 7,
+          "msgCount": 7,
+          "updatedAt": 1791417720000,
+          "terminal": true,
+          "prompt": null
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "name": "served under a different sequence number",
+        "context": {
+          "expect": {
+            "kind": "msg",
+            "key": "5hwtZanTlkeV0kY_Qiy6ug",
+            "seq": 8
+          }
+        },
+        "object": {
+          "h": "eyJ2IjoxLCJ0Ijoib2JqIiwiaWQiOiI4VWFfamZsbXcxU2VKdjNTUUZfMVVnIiwibm9uY2UiOiJDLS1HNGYtZTZQcjQyWmM2IiwicmVhbG0iOiJvb0VCUEtKZEFPSHZZeFBTIiwia2luZCI6Im1zZyIsImtleSI6IjVod3RaYW5UbGtlVjBrWV9RaXk2dWciLCJzZXEiOjcsInZlciI6NSwiZXBvY2giOjIsImJ5Ijoib29FQlBLSmRBT0h2WXhQUyIsInRzIjoxNzkxNDE3NzIwMDAwLCJ6aXAiOiJkZWZsYXRlIn0",
+          "hText": "{\"v\":1,\"t\":\"obj\",\"id\":\"8Ua_jflmw1SeJv3SQF_1Ug\",\"nonce\":\"C--G4f-e6Pr42Zc6\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"kind\":\"msg\",\"key\":\"5hwtZanTlkeV0kY_Qiy6ug\",\"seq\":7,\"ver\":5,\"epoch\":2,\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791417720000,\"zip\":\"deflate\"}",
+          "c": "NuByB-wWatIWWPn3llvkW5H5zDiUJErnQJGvqjDmRHiGWU53BDN8jVMyUy2RawBJSwlDP02cSjz29h9MXGSmiVDneTfz9K69OzniGpH50Kg3UhGfeC0YwxUhf9qCr4PSCEHgs9yv5Uxyuoa67HH3q1qnDEfeiEdSpvrEjMM35OAN_qThwZcGaXAPwhHs84YZ28Obcz8TiBh5KL8h4fNJzE2TrElQAe1eK8f-wWmR9_-nqs-8D6PljiTIm5-zl9w1BsiBn6fP_lHiWx_flJuV8eUb4iUY5RWMANJDF4xZ2wdG6GEmnGqyfwTUC5V5oW_1By9CJQrGeuMhQe3UXeOo7A15ckp3aO7an34av0qq_iJvwiNvNRKZR9LKn6Y8l57Pc7fsbnUEsoxLyQ2GxUVhxbW0rMlZevhGwXGp9bgtFRI0MvMbBwIsuEFHePF-6N9rQwx5ZSfINru5tKPuiJCIrPOKp5Cf-dL8PgCYxoa-0KTowg04VE0c3A",
+          "s": "6dMh1csxpm9hPbjVUB1Wal_g-aQtF5ivuZ5dg77_tvUMrqFRvyWEqDdl-Kvx6NFbeqpx9rQRPSOwpdmvqaCuOw"
+        },
+        "error": "wrong-object"
+      },
+      {
+        "name": "older version than one already seen",
+        "context": {
+          "expect": {
+            "kind": "msg",
+            "key": "5hwtZanTlkeV0kY_Qiy6ug",
+            "seq": 7
+          },
+          "minVer": 6
+        },
+        "object": {
+          "h": "eyJ2IjoxLCJ0Ijoib2JqIiwiaWQiOiI4VWFfamZsbXcxU2VKdjNTUUZfMVVnIiwibm9uY2UiOiJDLS1HNGYtZTZQcjQyWmM2IiwicmVhbG0iOiJvb0VCUEtKZEFPSHZZeFBTIiwia2luZCI6Im1zZyIsImtleSI6IjVod3RaYW5UbGtlVjBrWV9RaXk2dWciLCJzZXEiOjcsInZlciI6NSwiZXBvY2giOjIsImJ5Ijoib29FQlBLSmRBT0h2WXhQUyIsInRzIjoxNzkxNDE3NzIwMDAwLCJ6aXAiOiJkZWZsYXRlIn0",
+          "hText": "{\"v\":1,\"t\":\"obj\",\"id\":\"8Ua_jflmw1SeJv3SQF_1Ug\",\"nonce\":\"C--G4f-e6Pr42Zc6\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"kind\":\"msg\",\"key\":\"5hwtZanTlkeV0kY_Qiy6ug\",\"seq\":7,\"ver\":5,\"epoch\":2,\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791417720000,\"zip\":\"deflate\"}",
+          "c": "NuByB-wWatIWWPn3llvkW5H5zDiUJErnQJGvqjDmRHiGWU53BDN8jVMyUy2RawBJSwlDP02cSjz29h9MXGSmiVDneTfz9K69OzniGpH50Kg3UhGfeC0YwxUhf9qCr4PSCEHgs9yv5Uxyuoa67HH3q1qnDEfeiEdSpvrEjMM35OAN_qThwZcGaXAPwhHs84YZ28Obcz8TiBh5KL8h4fNJzE2TrElQAe1eK8f-wWmR9_-nqs-8D6PljiTIm5-zl9w1BsiBn6fP_lHiWx_flJuV8eUb4iUY5RWMANJDF4xZ2wdG6GEmnGqyfwTUC5V5oW_1By9CJQrGeuMhQe3UXeOo7A15ckp3aO7an34av0qq_iJvwiNvNRKZR9LKn6Y8l57Pc7fsbnUEsoxLyQ2GxUVhxbW0rMlZevhGwXGp9bgtFRI0MvMbBwIsuEFHePF-6N9rQwx5ZSfINru5tKPuiJCIrPOKp5Cf-dL8PgCYxoa-0KTowg04VE0c3A",
+          "s": "6dMh1csxpm9hPbjVUB1Wal_g-aQtF5ivuZ5dg77_tvUMrqFRvyWEqDdl-Kvx6NFbeqpx9rQRPSOwpdmvqaCuOw"
+        },
+        "error": "rollback"
+      },
+      {
+        "name": "ciphertext modified",
+        "context": {
+          "expect": {
+            "kind": "msg",
+            "key": "5hwtZanTlkeV0kY_Qiy6ug",
+            "seq": 7
+          }
+        },
+        "object": {
+          "h": "eyJ2IjoxLCJ0Ijoib2JqIiwiaWQiOiI4VWFfamZsbXcxU2VKdjNTUUZfMVVnIiwibm9uY2UiOiJDLS1HNGYtZTZQcjQyWmM2IiwicmVhbG0iOiJvb0VCUEtKZEFPSHZZeFBTIiwia2luZCI6Im1zZyIsImtleSI6IjVod3RaYW5UbGtlVjBrWV9RaXk2dWciLCJzZXEiOjcsInZlciI6NSwiZXBvY2giOjIsImJ5Ijoib29FQlBLSmRBT0h2WXhQUyIsInRzIjoxNzkxNDE3NzIwMDAwLCJ6aXAiOiJkZWZsYXRlIn0",
+          "hText": "{\"v\":1,\"t\":\"obj\",\"id\":\"8Ua_jflmw1SeJv3SQF_1Ug\",\"nonce\":\"C--G4f-e6Pr42Zc6\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"kind\":\"msg\",\"key\":\"5hwtZanTlkeV0kY_Qiy6ug\",\"seq\":7,\"ver\":5,\"epoch\":2,\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791417720000,\"zip\":\"deflate\"}",
+          "c": "NuByB-wWatIWWPj3llvkW5H5zDiUJErnQJGvqjDmRHiGWU53BDN8jVMyUy2RawBJSwlDP02cSjz29h9MXGSmiVDneTfz9K69OzniGpH50Kg3UhGfeC0YwxUhf9qCr4PSCEHgs9yv5Uxyuoa67HH3q1qnDEfeiEdSpvrEjMM35OAN_qThwZcGaXAPwhHs84YZ28Obcz8TiBh5KL8h4fNJzE2TrElQAe1eK8f-wWmR9_-nqs-8D6PljiTIm5-zl9w1BsiBn6fP_lHiWx_flJuV8eUb4iUY5RWMANJDF4xZ2wdG6GEmnGqyfwTUC5V5oW_1By9CJQrGeuMhQe3UXeOo7A15ckp3aO7an34av0qq_iJvwiNvNRKZR9LKn6Y8l57Pc7fsbnUEsoxLyQ2GxUVhxbW0rMlZevhGwXGp9bgtFRI0MvMbBwIsuEFHePF-6N9rQwx5ZSfINru5tKPuiJCIrPOKp5Cf-dL8PgCYxoa-0KTowg04VE0c3A",
+          "s": "6dMh1csxpm9hPbjVUB1Wal_g-aQtF5ivuZ5dg77_tvUMrqFRvyWEqDdl-Kvx6NFbeqpx9rQRPSOwpdmvqaCuOw"
+        },
+        "error": "bad-sig"
+      },
+      {
+        "name": "written by a phone",
+        "context": {
+          "expect": {
+            "kind": "msg",
+            "key": "5hwtZanTlkeV0kY_Qiy6ug",
+            "seq": 7
+          }
+        },
+        "object": {
+          "h": "eyJ2IjoxLCJ0Ijoib2JqIiwiaWQiOiJLNktHbGswRlVEeExRSUpvNERrN2xBIiwibm9uY2UiOiIxSWtERVN3cG1ZQ0J1RlU1IiwicmVhbG0iOiJvb0VCUEtKZEFPSHZZeFBTIiwia2luZCI6Im1zZyIsImtleSI6IjVod3RaYW5UbGtlVjBrWV9RaXk2dWciLCJzZXEiOjcsInZlciI6NiwiZXBvY2giOjIsImJ5IjoidzFielA3aTVzTXVoY21TZCIsInRzIjoxNzkxNDE3NzIwMDAwfQ",
+          "hText": "{\"v\":1,\"t\":\"obj\",\"id\":\"K6KGlk0FUDxLQIJo4Dk7lA\",\"nonce\":\"1IkDESwpmYCBuFU5\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"kind\":\"msg\",\"key\":\"5hwtZanTlkeV0kY_Qiy6ug\",\"seq\":7,\"ver\":6,\"epoch\":2,\"by\":\"w1bzP7i5sMuhcmSd\",\"ts\":1791417720000}",
+          "c": "r7bYjzJL5ZXY9E0kv6hZT9x1Rtvo-4UvZiOpllEI5zjhuGatrHRl2Kk6iNhcJ1zqmWrR_uYpVx1gBCRARkFKI3Jl33uGZQjyl0RGCdHXcyS5ya6W-wEMFxRLjlLvz8N49knQFRT9jm6z516iaffkf26TzgdqVG2Rh-0NcJ_owoMdisIatpUm4L7knq8AghCpqfbN0IOaMb_qxxcdLQ8vtSaM7NHsPeN2W2BUeazJrQy5UbMSL47qH05kNEvpVOzqFMcwaWqnyOXQ3MMWQfksfkkXUCINwyEUydkR01vWn2kXZg_qyshRo9mmTkCVbNnvMQ65JKI8OtwMsUxwbUV-oAT0E6jFBJ7lT1RflbxAW8nRIh4xPrMitglyorljzVtAvbkTX5B355o5hRwSEhpKO8rkD_pdoUF42ot752roQ-OFv_ZtY0kqb1zBu32gOYcFe0kT05rw56Lxnls7k4ochH_6drgNOw46qkyMbK6wQs3EOQE4hmVFjD5BbLGM21WOdGhIXnaurBz7VdGva2fDkBvna89bKgLNkbOyoYXNb5n-ThZpNIiRlitS9AI7ftiPABUEXhz6CeM56wYls_lGXIneaqvvddJbf67rS7DfBdc",
+          "s": "zYxP-yud7b2EL0vgjAzIOsXkcG53IK3rx1xf4JR6ZPOZldURNGVIbxcT6EADqyYnBTO8cGF3fH5NFgMw8WbH7Q"
+        },
+        "error": "not-owner"
+      },
+      {
+        "name": "inflates beyond the limit",
+        "context": {
+          "expect": {
+            "kind": "lite",
+            "key": "5hwtZanTlkeV0kY_Qiy6ug",
+            "seq": 7
+          }
+        },
+        "object": {
+          "h": "eyJ2IjoxLCJ0Ijoib2JqIiwiaWQiOiJjQ3FsVkZreUptUGRoelo3VktBcHB3Iiwibm9uY2UiOiJNS2ZLS2N6N2UzZEhFS3AxIiwicmVhbG0iOiJvb0VCUEtKZEFPSHZZeFBTIiwia2luZCI6ImxpdGUiLCJrZXkiOiI1aHd0WmFuVGxrZVYwa1lfUWl5NnVnIiwic2VxIjo3LCJ2ZXIiOjEsImVwb2NoIjoyLCJieSI6Im9vRUJQS0pkQU9Idll4UFMiLCJ0cyI6MTc5MTQxNzcyMDAwMCwiemlwIjoiZGVmbGF0ZSJ9",
+          "hText": "{\"v\":1,\"t\":\"obj\",\"id\":\"cCqlVFkyJmPdhzZ7VKAppw\",\"nonce\":\"MKfKKcz7e3dHEKp1\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"kind\":\"lite\",\"key\":\"5hwtZanTlkeV0kY_Qiy6ug\",\"seq\":7,\"ver\":1,\"epoch\":2,\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791417720000,\"zip\":\"deflate\"}",
+          "c": "SjUx-YNmVnFGYbXZMWzafl7K_G6496ZpfMyojVkeRZdJTkfy7POaBFicJ8HS7QjJ5o8rtIlIKBd7XjMpdbAwC16Bnj4Garf-neRZ10SMeuwsaq3SkG89rY0CjkhJbQrn1MMHivPpk-2xGp6Ljap-o4VZbWv-YNha5zayydt3Ad25fND8PYyNZhTRrSz01BgCkxS0OEMyBPADWDy2fyqRoWIjObPY4y0OQ3YbjVAP37X3Fcp0EuLBhx57XRV5f9qSl-GmUqDmnleCV0PL7Sn9IrUzcj2Vj15eN_QX2L2CAjBw-Wm8Eqrxrm0a12jbu3iPqBJTIkbTOLcz6rQEpu0L19HZjDIiBmr7JSV5vqVw-DQ3ncE3JYrS24UmHA88wT0zUjzRXWOTC2HIkUzeTfV-gQnj4bG_ownQQ63J2_sePO1TDyauvni0-LVklMDmHLbf5wGLBf78guOrAk0wd1QQhxOKY1aLxfr3I2tZEbHGPj-tHe2BFyq-g7Kim4VlUt61h_NMJvSaCY4P0VUrifkPb-4ih0lHxRTkZ-nIPEfd5ByBYRCPhWkEnohadajQJ5acHyn5-3wdaz9-Xjaa-7d-eudWbI-Qisr7TWsNDA8FDEmk-dQDrnRkEHsXfQDdMsJjdco2Pz9B0CLE0QGeTCvH99ff9Ubvn1-QPQMSqnkx_J71JQwVcBOS3bskH9Ua8BZBoO1LanYWCag7qIczx-C-KN1V8d9dhIKyYduG8uYt-3MpFeK_EgtmpbKnuTlPYSEW-MM0R9NZJ8lUqH885XExxcKQmeWIkAxZxwznpkzTbUufc_rBy1UG8w7BclksrTQZxd7w-vyzQPZyKBN4zuk3H_PTMgrUcnJsg6cb6z7x1rrTElAQhxBz45XwDhneCee2oCpKSSniM7u5lEmauLGyRDVCjaFBm0sKtuY9d6kLs35A_ketKxwkLNePMdg3OAUIhErYIDU8ss69ITbdj_08uPPQTYws8C1bXYQHQ60irmmSWiy8GQmZd7by6HXeSJW1EClktieElOCbl_nlqOL5qDjmBxMNFb5xQxvMHdTwWifO5j7AT8SqhuxR6EHG7Z9EuSPwvRjgMN9VSiodrwwNYXZRoYXVhXKudwdah05lpxnIskizpaXYeSahMmtu2IRGr5UiQL8HpWCVaT1JIO_Ifdxr_b2HE2ILq67H0fSFMazwwlfNGMg9zZPfkoed64zqrEIDfuoMUAFoYjVsUunObVLIe7oXtjkfthRFJT-TAu9T6Jr7IgToT9rNqCYzXkGbyv1KkvweNkkl8XS9TbwfmDHUryD_BwdnNIKh-52dtA5RuZnMsT_zR4h-RzC40YDYGU0JZewwltOllv-RT4i1QIABgUPCZ8QQwnYTMLpMQrnba_Tur0KtKFsn",
+          "s": "zT_kfyQPqkdUV4azAqGbMEe0bWxgpyU_O0kJuU-TpZFkm6uM4sL6ql9Ui5h86nSpGcCu7_KGFZo7glydKwhWTg"
+        },
+        "error": "too-large"
+      }
+    ]
+  },
+  "grant": {
+    "valid": [
+      {
+        "name": "computer grants its keyring to a phone",
+        "context": {
+          "prefix": 9,
+          "self": "phoneA"
+        },
+        "grant": {
+          "h": "eyJ2IjoxLCJ0IjoiZ3JhbnQiLCJpZCI6IldXZ2k5Q3dmc2JkQXg3ZmVmTG9WNmciLCJub25jZSI6Ik9wZktsVy1VV0x5QmhrcnoiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJ0byI6IncxYnpQN2k1c011aGNtU2QiLCJ0b0t4IjoiQkFxdWhURzVkdGhnc2VhYjVlUHRNNXNfOW10Ujg1VGZEcVFMT0FSVnh5ci03S29sWk9YYnVNcGNXc0RDOS1oYzFsb09TUGVSY3JnTEI1X0syd1U4c1N3IiwiYnkiOiJvb0VCUEtKZEFPSHZZeFBTIiwidHMiOjE3OTE0MTgyMDAwMDAsImVwaCI6IkJGY1I1MTJNUVNSNS1DdWRJZHlCSm5WZHJOaHJFN1NyLUxFX1oyMDF5bmtQRUpmbjB4c1NzdEdwR0llNFpzU3JUTHdBY21xTmxab1ltenpudC1fdEVrSSIsImVwb2NocyI6W3siZXBvY2giOjEsImtpZCI6Incyd1hnaGh6MjlaRlpQQUpTbDlSb3cifSx7ImVwb2NoIjoyLCJraWQiOiJEOS04bGVNWllITU1Ka3hEcnFrWnhnIn1dfQ",
+          "hText": "{\"v\":1,\"t\":\"grant\",\"id\":\"WWgi9CwfsbdAx7fefLoV6g\",\"nonce\":\"OpfKlW-UWLyBhkrz\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"to\":\"w1bzP7i5sMuhcmSd\",\"toKx\":\"BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw\",\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791418200000,\"eph\":\"BFcR512MQSR5-CudIdyBJnVdrNhrE7Sr-LE_Z201ynkPEJfn0xsSstGpGIe4ZsSrTLwAcmqNlZoYmzznt-_tEkI\",\"epochs\":[{\"epoch\":1,\"kid\":\"w2wXghhz29ZFZPAJSl9Row\"},{\"epoch\":2,\"kid\":\"D9-8leMZYHMMJkxDrqkZxg\"}]}",
+          "c": "0cW07iTrMzw9OeD6fIJ5wmq_2uv4DoGR9Yf8pwwWLKD-U_i4y8ehkfo6o6R6dY0mpyYtZEGEOwwpRHgynr54e4mzw7mpc8FXyS2ECJYJwhYI2GPNj6JXrygMLYaTC2xEOOKaS8p4O90qm1fW6-YTtXocsO5sqVR9TjNGB3U0IwSxJ6TWt7K8fw9vjaXtmb7QT3CZf9i57NdsNH4fb6cu28M5sKF7aqakURwg5sWwTAZa_UonmQ",
+          "s": "277rBxsMLh3D0cS-iq-9Gth44ghmjR50PahOz0mTh186tV6Fo3OWacegEupkRB6gKyrKWVb1Ts4CcnchU5R6Dw"
+        },
+        "ephPriv": "AZVoyViBP5EuClYxjmOe7IT-gqxzh-oi3jDuxRdWWqk",
+        "keys": {
+          "1": "5i-sGkGY40qgn0-CRl4Qfi8u3m1BDuTdGcjih3ijn7A",
+          "2": "jONvFLnrc2Kv1EAnQopAfHgaiqIijQ6dzhLNICwQ5SU"
+        }
+      },
+      {
+        "name": "admin phone re-grants a realm key it holds",
+        "context": {
+          "prefix": 5,
+          "self": "phoneB"
+        },
+        "grant": {
+          "h": "eyJ2IjoxLCJ0IjoiZ3JhbnQiLCJpZCI6ImdhU3VuTXR4cGhGTEhrdjNGQmJ1eHciLCJub25jZSI6Ii1CTmlwb01pWXpzNXpOb0siLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJ0byI6IlZJMG5nRWJRSVN1M1hyWlgiLCJ0b0t4IjoiQkJCa1B4WWtwcnhhZlhvSmFsX05QczN6aGhVMkNjRGFVcV8xOTFPRENXd2d4Q1ozb25yaGVYbGp1dm5WdnYzei15ckpaRW5RaTNiNm42ZWxrSUw3NnVvIiwiYnkiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwidHMiOjE3OTE0MTgyMDAwMDAsImVwaCI6IkJET2xDd1NUbnFFNnBxSUliVTI4UFZiUDA0N0ZJemVzVl94ZXU0cFVQRUtZWkJpcVI3Q0JaTFBMSWRmQlVqTFFZVVppb1JCbG1wc3JmbkZpUGczb0NPUSIsImVwb2NocyI6W3siZXBvY2giOjEsImtpZCI6Incyd1hnaGh6MjlaRlpQQUpTbDlSb3cifV19",
+          "hText": "{\"v\":1,\"t\":\"grant\",\"id\":\"gaSunMtxphFLHkv3FBbuxw\",\"nonce\":\"-BNipoMiYzs5zNoK\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"to\":\"VI0ngEbQISu3XrZX\",\"toKx\":\"BBBkPxYkprxafXoJal_NPs3zhhU2CcDaUq_191ODCWwgxCZ3onrheXljuvnVvv3z-yrJZEnQi3b6n6elkIL76uo\",\"by\":\"w1bzP7i5sMuhcmSd\",\"ts\":1791418200000,\"eph\":\"BDOlCwSTnqE6pqIIbU28PVbP047FIzesV_xeu4pUPEKYZBiqR7CBZLPLIdfBUjLQYUZioRBlmpsrfnFiPg3oCOQ\",\"epochs\":[{\"epoch\":1,\"kid\":\"w2wXghhz29ZFZPAJSl9Row\"}]}",
+          "c": "kjeZoyI1nd5mVrg_D8vK4n_KvLK2NUrRRQVc_4eHV_1pLQ7tKbQcUiGCjrUDARMzpfPbTrOSs806oQb_nvJOPiimAnyXcmaAFPUCOflge_79ar_wjyzVlQdiDdb4mvmYZ9hfeMHNO9N_X-AYBFMqlnLj8_Mj",
+          "s": "naNrvFFsWXO8BoOu8BeueeIbgxsU1_W3fzhQMxcZOYwkLtRZqy57toTr65i-4dm1HNVkUhGeYBu9f60mTOODEQ"
+        },
+        "ephPriv": "6XH_qByseHp4Br-hKB_HmuBgglPYq_h66mJzZRl4elE",
+        "keys": {
+          "1": "5i-sGkGY40qgn0-CRl4Qfi8u3m1BDuTdGcjih3ijn7A"
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "name": "key does not match the lock commitment",
+        "context": {
+          "prefix": 9,
+          "self": "phoneA"
+        },
+        "grant": {
+          "h": "eyJ2IjoxLCJ0IjoiZ3JhbnQiLCJpZCI6Im1NYnVqMTdYVjRmNVVXaVpic3dpY0EiLCJub25jZSI6ImxQNExveEhqSFYtSkRUWFYiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJ0byI6IncxYnpQN2k1c011aGNtU2QiLCJ0b0t4IjoiQkFxdWhURzVkdGhnc2VhYjVlUHRNNXNfOW10Ujg1VGZEcVFMT0FSVnh5ci03S29sWk9YYnVNcGNXc0RDOS1oYzFsb09TUGVSY3JnTEI1X0syd1U4c1N3IiwiYnkiOiJvb0VCUEtKZEFPSHZZeFBTIiwidHMiOjE3OTE0MTgyMDAwMDAsImVwaCI6IkJHclRUbTdkRmhzLU90SnBrb3RIcU51SDZpUmtkT1Jia3liaGxRUUhSSy0taXU0b3hTLWs5T1hqWWV3ZWNoYVItS1V6YTByMjlCbXFINGNtcVM3dmJKVSIsImVwb2NocyI6W3siZXBvY2giOjEsImtpZCI6InExdUtZaHkxNk9aNHRuek4wLTFsTlEifV19",
+          "hText": "{\"v\":1,\"t\":\"grant\",\"id\":\"mMbuj17XV4f5UWiZbswicA\",\"nonce\":\"lP4LoxHjHV-JDTXV\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"to\":\"w1bzP7i5sMuhcmSd\",\"toKx\":\"BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw\",\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791418200000,\"eph\":\"BGrTTm7dFhs-OtJpkotHqNuH6iRkdORbkybhlQQHRK--iu4oxS-k9OXjYewechaR-KUza0r29BmqH4cmqS7vbJU\",\"epochs\":[{\"epoch\":1,\"kid\":\"q1uKYhy16OZ4tnzN0-1lNQ\"}]}",
+          "c": "bDTxJhTdHND1CUDN5S708FViICf-nii9Wv5_71o3RqHb1p5vMhGANootwJAT1K2UW4UWk0wRuzf7FyP1hO_krSwbFL0ktoMx8A1xSKA4gKbrbJulqQVas4nMZKZgb9jMyd2OzpBU34LRaXgHWoUP0qdI3b1I",
+          "s": "axyJMb0YzItx_MsgBXFF8kPCYBHxjIVr_6XqC6rxzo99raS7cgiLM-7TsF2rlT-pEKJe_smGaMrvH6FYH5j3Fw"
+        },
+        "error": "bad-kid"
+      },
+      {
+        "name": "non-admin phone grants",
+        "context": {
+          "prefix": 7,
+          "self": "phoneA"
+        },
+        "grant": {
+          "h": "eyJ2IjoxLCJ0IjoiZ3JhbnQiLCJpZCI6Ik1VVHZ2b25tOTZGNURUQUFvR0E5R2ciLCJub25jZSI6InI5R3JINFM3VU1INE9pOC0iLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJ0byI6IncxYnpQN2k1c011aGNtU2QiLCJ0b0t4IjoiQkFxdWhURzVkdGhnc2VhYjVlUHRNNXNfOW10Ujg1VGZEcVFMT0FSVnh5ci03S29sWk9YYnVNcGNXc0RDOS1oYzFsb09TUGVSY3JnTEI1X0syd1U4c1N3IiwiYnkiOiJWSTBuZ0ViUUlTdTNYclpYIiwidHMiOjE3OTE0MTgyMDAwMDAsImVwaCI6IkJIMTFpbzdiZkpON1pPRTJYVDBjQUNOQnhZTHVkZWtRdmVDeWNoUkxXN0ROVHhjSllqQm9Mc0ZxcHpPU0wwSjhxOGVWdmZmZGZCVWY3b004QWtDekR4VSIsImVwb2NocyI6W3siZXBvY2giOjEsImtpZCI6Incyd1hnaGh6MjlaRlpQQUpTbDlSb3cifV19",
+          "hText": "{\"v\":1,\"t\":\"grant\",\"id\":\"MUTvvonm96F5DTAAoGA9Gg\",\"nonce\":\"r9GrH4S7UMH4Oi8-\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"to\":\"w1bzP7i5sMuhcmSd\",\"toKx\":\"BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw\",\"by\":\"VI0ngEbQISu3XrZX\",\"ts\":1791418200000,\"eph\":\"BH11io7bfJN7ZOE2XT0cACNBxYLudekQveCychRLW7DNTxcJYjBoLsFqpzOSL0J8q8eVvffdfBUf7oM8AkCzDxU\",\"epochs\":[{\"epoch\":1,\"kid\":\"w2wXghhz29ZFZPAJSl9Row\"}]}",
+          "c": "folQ0IqRBV2Uk1JhqhWcr9ss7AwB1vi_zKeHeE0i5ll163ZFtxUs12RbkjnyFy-2fuW0ZutVViUIISxt6pX8tHerDHxSyKvLT6vGyeWgUSiuRkubGrQ-MbQCv7k7QB2tVrtoUckr23UKY2bIid6j0uKwSWnO",
+          "s": "lvnJldklr_3OlejRaaaZIc4JOM8Q7ATa77SBYe2Q1pWvmjL5-vA8MU9RHV6rd45rFZve8j5LGjDCkRhCrpanWg"
+        },
+        "error": "denied"
+      },
+      {
+        "name": "opened by the wrong device",
+        "context": {
+          "prefix": 9,
+          "self": "computerD"
+        },
+        "grant": {
+          "h": "eyJ2IjoxLCJ0IjoiZ3JhbnQiLCJpZCI6IldXZ2k5Q3dmc2JkQXg3ZmVmTG9WNmciLCJub25jZSI6Ik9wZktsVy1VV0x5QmhrcnoiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJ0byI6IncxYnpQN2k1c011aGNtU2QiLCJ0b0t4IjoiQkFxdWhURzVkdGhnc2VhYjVlUHRNNXNfOW10Ujg1VGZEcVFMT0FSVnh5ci03S29sWk9YYnVNcGNXc0RDOS1oYzFsb09TUGVSY3JnTEI1X0syd1U4c1N3IiwiYnkiOiJvb0VCUEtKZEFPSHZZeFBTIiwidHMiOjE3OTE0MTgyMDAwMDAsImVwaCI6IkJGY1I1MTJNUVNSNS1DdWRJZHlCSm5WZHJOaHJFN1NyLUxFX1oyMDF5bmtQRUpmbjB4c1NzdEdwR0llNFpzU3JUTHdBY21xTmxab1ltenpudC1fdEVrSSIsImVwb2NocyI6W3siZXBvY2giOjEsImtpZCI6Incyd1hnaGh6MjlaRlpQQUpTbDlSb3cifSx7ImVwb2NoIjoyLCJraWQiOiJEOS04bGVNWllITU1Ka3hEcnFrWnhnIn1dfQ",
+          "hText": "{\"v\":1,\"t\":\"grant\",\"id\":\"WWgi9CwfsbdAx7fefLoV6g\",\"nonce\":\"OpfKlW-UWLyBhkrz\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"to\":\"w1bzP7i5sMuhcmSd\",\"toKx\":\"BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw\",\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791418200000,\"eph\":\"BFcR512MQSR5-CudIdyBJnVdrNhrE7Sr-LE_Z201ynkPEJfn0xsSstGpGIe4ZsSrTLwAcmqNlZoYmzznt-_tEkI\",\"epochs\":[{\"epoch\":1,\"kid\":\"w2wXghhz29ZFZPAJSl9Row\"},{\"epoch\":2,\"kid\":\"D9-8leMZYHMMJkxDrqkZxg\"}]}",
+          "c": "0cW07iTrMzw9OeD6fIJ5wmq_2uv4DoGR9Yf8pwwWLKD-U_i4y8ehkfo6o6R6dY0mpyYtZEGEOwwpRHgynr54e4mzw7mpc8FXyS2ECJYJwhYI2GPNj6JXrygMLYaTC2xEOOKaS8p4O90qm1fW6-YTtXocsO5sqVR9TjNGB3U0IwSxJ6TWt7K8fw9vjaXtmb7QT3CZf9i57NdsNH4fb6cu28M5sKF7aqakURwg5sWwTAZa_UonmQ",
+          "s": "277rBxsMLh3D0cS-iq-9Gth44ghmjR50PahOz0mTh186tV6Fo3OWacegEupkRB6gKyrKWVb1Ts4CcnchU5R6Dw"
+        },
+        "error": "not-for-me"
+      },
+      {
+        "name": "ciphertext modified",
+        "context": {
+          "prefix": 9,
+          "self": "phoneA"
+        },
+        "grant": {
+          "h": "eyJ2IjoxLCJ0IjoiZ3JhbnQiLCJpZCI6IldXZ2k5Q3dmc2JkQXg3ZmVmTG9WNmciLCJub25jZSI6Ik9wZktsVy1VV0x5QmhrcnoiLCJyZWFsbSI6Im9vRUJQS0pkQU9Idll4UFMiLCJ0byI6IncxYnpQN2k1c011aGNtU2QiLCJ0b0t4IjoiQkFxdWhURzVkdGhnc2VhYjVlUHRNNXNfOW10Ujg1VGZEcVFMT0FSVnh5ci03S29sWk9YYnVNcGNXc0RDOS1oYzFsb09TUGVSY3JnTEI1X0syd1U4c1N3IiwiYnkiOiJvb0VCUEtKZEFPSHZZeFBTIiwidHMiOjE3OTE0MTgyMDAwMDAsImVwaCI6IkJGY1I1MTJNUVNSNS1DdWRJZHlCSm5WZHJOaHJFN1NyLUxFX1oyMDF5bmtQRUpmbjB4c1NzdEdwR0llNFpzU3JUTHdBY21xTmxab1ltenpudC1fdEVrSSIsImVwb2NocyI6W3siZXBvY2giOjEsImtpZCI6Incyd1hnaGh6MjlaRlpQQUpTbDlSb3cifSx7ImVwb2NoIjoyLCJraWQiOiJEOS04bGVNWllITU1Ka3hEcnFrWnhnIn1dfQ",
+          "hText": "{\"v\":1,\"t\":\"grant\",\"id\":\"WWgi9CwfsbdAx7fefLoV6g\",\"nonce\":\"OpfKlW-UWLyBhkrz\",\"realm\":\"ooEBPKJdAOHvYxPS\",\"to\":\"w1bzP7i5sMuhcmSd\",\"toKx\":\"BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw\",\"by\":\"ooEBPKJdAOHvYxPS\",\"ts\":1791418200000,\"eph\":\"BFcR512MQSR5-CudIdyBJnVdrNhrE7Sr-LE_Z201ynkPEJfn0xsSstGpGIe4ZsSrTLwAcmqNlZoYmzznt-_tEkI\",\"epochs\":[{\"epoch\":1,\"kid\":\"w2wXghhz29ZFZPAJSl9Row\"},{\"epoch\":2,\"kid\":\"D9-8leMZYHMMJkxDrqkZxg\"}]}",
+          "c": "0cW07iTqMzw9OeD6fIJ5wmq_2uv4DoGR9Yf8pwwWLKD-U_i4y8ehkfo6o6R6dY0mpyYtZEGEOwwpRHgynr54e4mzw7mpc8FXyS2ECJYJwhYI2GPNj6JXrygMLYaTC2xEOOKaS8p4O90qm1fW6-YTtXocsO5sqVR9TjNGB3U0IwSxJ6TWt7K8fw9vjaXtmb7QT3CZf9i57NdsNH4fb6cu28M5sKF7aqakURwg5sWwTAZa_UonmQ",
+          "s": "277rBxsMLh3D0cS-iq-9Gth44ghmjR50PahOz0mTh186tV6Fo3OWacegEupkRB6gKyrKWVb1Ts4CcnchU5R6Dw"
+        },
+        "error": "bad-sig"
+      }
+    ]
+  },
+  "blob": {
+    "valid": [
+      {
+        "name": "empty",
+        "fileKey": "xLYTi3XCUQcMnlkTL-LXFANmmM4t31xcev3J4PW-gWk",
+        "blobId": "OVPwSB8CksObJ6pPL4YT9A",
+        "blobKey": "ckpgtCZUSV-7FNzJDIuudJWcMmuPJTWrQvUQyvUy_OM",
+        "plaintext": {
+          "b64u": ""
+        },
+        "plaintextSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ciphertextLength": 38,
+        "ciphertextSha256": "1625a4cc9ebe749439e2d3ff544a85c08f5ce49d15198c2cf4cd155a451bf747",
+        "ciphertext": "UEtCMQEQOVPwSB8CksObJ6pPL4YT9JfvPuxyDK36QNKaunT0XMM"
+      },
+      {
+        "name": "hello",
+        "fileKey": "ao-ORaS_2rZahR2kjuYb2gv-sfEkhnXH44rd6tzZxEQ",
+        "blobId": "9U_B-9Rw79jbOduup3poKg",
+        "blobKey": "v_Gv_VL3bqt1LHh06g_7g4Anxf6ayW-u1V9pl6U6kZE",
+        "plaintext": {
+          "b64u": "aGVsbG8"
+        },
+        "plaintextSha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+        "ciphertextLength": 43,
+        "ciphertextSha256": "83a6bb789a041ed908a9f12c015c730a624bd8ad502937665efbe47484dec32d",
+        "ciphertext": "UEtCMQEQ9U_B-9Rw79jbOduup3poKvFAn-bKhuVQm7zSe4gqbhrq59vHbw"
+      },
+      {
+        "name": "one full chunk",
+        "fileKey": "XO3olt6JtN5cuM79qIRYANiYmtKabAc6Sr3sks73fsA",
+        "blobId": "YoYnh45Cho3zjVPrTsnKdA",
+        "blobKey": "miGmgM_doh_yutyGp1xwFNh3hqqaTDeg3UUYBCQ0qs4",
+        "plaintext": {
+          "pattern": "byte i = i mod 251",
+          "length": 65536
+        },
+        "plaintextSha256": "4b640d85ab3ba30fd02c9fc9db4a8928f416322ad27022ea58a65aaee68a4df2",
+        "ciphertextLength": 65574,
+        "ciphertextSha256": "8f418ae081772a99876f4f83e146978a3f953a5579b5ac604a5fd8a32226d8cd",
+        "ciphertextHead": "UEtCMQEQYoYnh45Cho3zjVPrTsnKdM1_egHzU53cMmdyOhBzUkSrXxh8GNn9ER3XcUjdgmo8uUas7Nbs7QTQWg",
+        "ciphertextTail": "Kp6mJpoTs9zgiJe1bJqop79elwDuFs0verSDat7Kpnt0mJsgY2DsZRCKUhOgrcVVGoYFq5VCZQbsbDoY2vy-oA"
+      },
+      {
+        "name": "one chunk and one byte",
+        "fileKey": "pfSaF80nzSwnYD5sM6xWCNGARfkW4MvQzI1S_Fha0fs",
+        "blobId": "pjpJBD2EngHanhaWGIxGBA",
+        "blobKey": "9fklzo3Q_tROiOVY3_zcAjcD6L8jrqQtipA71N5GkgM",
+        "plaintext": {
+          "pattern": "byte i = i mod 251",
+          "length": 65537
+        },
+        "plaintextSha256": "237356e18b503616912abb8ffaed3a72591e397d4ac294c4637917d48a3f529d",
+        "ciphertextLength": 65591,
+        "ciphertextSha256": "62c1b268954bb49ff270ac34fdf008edd1c3fddba8f23b12b65f26eab5718a4b",
+        "ciphertextHead": "UEtCMQEQpjpJBD2EngHanhaWGIxGBABlwQ22DtVdmPg7qphFTq1X7aseW4AeRnUCHZiSnWARYaUpgGFIUH4AFQ",
+        "ciphertextTail": "mq1Ep3_el08vt1l6cOQwX-sP1D1rS3eif38SM-z6ywZcji5tvPvAdRE6D8uv2VhDeqbwpDPUxp8mU0zaTHkSeQ"
+      },
+      {
+        "name": "four chunks",
+        "fileKey": "PbIG9v8sBDOovFFF09yweNUgVJox2iKac_I2adBoONk",
+        "blobId": "VPrHvJsP8A6DMXttFIN7jg",
+        "blobKey": "JW2eR6oggAOhn2ulpiz___JX7XaKZaG5sMPVV-_QWZE",
+        "plaintext": {
+          "pattern": "byte i = i mod 251",
+          "length": 200000
+        },
+        "plaintextSha256": "e24bc62381f1224fbbb74688663f8f9743b9680b193edd666835e97b06e730eb",
+        "ciphertextLength": 200086,
+        "ciphertextSha256": "60bf8d90e33edea7cac36c840ad29e6b090d3796fb72a5e6dc264e9e98beebf9",
+        "ciphertextHead": "UEtCMQEQVPrHvJsP8A6DMXttFIN7jvhgQ8x3G8455RM2V9ytwoyD9bbR_Ab1JqfIsnIfkEPlJEFky82OHsDYbQ",
+        "ciphertextTail": "NM3sui5vXxiwN7UvasEniWvR2tOkYcWk_1Pd9Bg1b1LtQlapnvytgkIKFlBbmPy89TOsd-NBrBds5gUJ3zldwQ"
+      }
+    ],
+    "invalid": [
+      {
+        "name": "last chunk dropped",
+        "of": "four chunks",
+        "ciphertextLength": 196678,
+        "ciphertextSha256": "b6ac39c15a8ecceb4f74253fdf57f2871a279766b7f83dc13a085a002173c0e6",
+        "error": "bad-tag"
+      },
+      {
+        "name": "cut in the middle of a chunk",
+        "of": "four chunks",
+        "ciphertextLength": 66574,
+        "ciphertextSha256": "d155bf59b448e182222c897551625ccc0a1514638fd92fb7815b0bc3d742e82a",
+        "error": "bad-tag"
+      },
+      {
+        "name": "chunks 1 and 2 swapped",
+        "of": "four chunks",
+        "ciphertextLength": 200086,
+        "ciphertextSha256": "89acb974e5977d3649a2df367f0b8901e14816c03ab57f4d74df4b70ab180154",
+        "error": "bad-tag"
+      },
+      {
+        "name": "extra bytes appended",
+        "of": "four chunks",
+        "ciphertextLength": 200102,
+        "ciphertextSha256": "aee5d12871ccbb59a591769a1b06d71aeecddf7319d32308ad25de93339e3c61",
+        "error": "bad-tag"
+      },
+      {
+        "name": "header names another blob",
+        "of": "four chunks",
+        "ciphertextLength": 200086,
+        "ciphertextSha256": "6a2a9a3ee6e9bb90ea9fe3e04b5b8e8f665f8a702d10250e0e8c98cb9e3846df",
+        "error": "bad-blob"
+      }
+    ]
+  },
+  "coord": {
+    "keys": {
+      "private": {
+        "test-c1": "MhuqeO91Zxdimn7bS0NIq7BFncGM4NRwP2qFjGxhdqk",
+        "test-c2": "VzpqmUi_kda2UXw59SawpJ9wNTAs0rS-ccjGeO3P_6E"
+      },
+      "pinned": [
+        {
+          "kid": "test-c1",
+          "pub": "BFUMBwlnW6JAuk-7MItm83u0L9-LOLxuCXFUoq_D4L0f8XbKjX0dJ0iix5QNnzrPFH_8OKMy2koUoqzjE1EVJKI",
+          "use": [
+            "keys",
+            "ticket",
+            "netmap",
+            "revocations",
+            "purge"
+          ],
+          "nbf": 1788825600000,
+          "exp": 1822953600000
+        }
+      ],
+      "document": {
+        "p": "eyJ2IjoxLCJ0Ijoia2V5cyIsImF0IjoxNzkxNDE3NjAwMDAwLCJrZXlzIjpbeyJraWQiOiJ0ZXN0LWMxIiwicHViIjoiQkZVTUJ3bG5XNkpBdWstN01JdG04M3UwTDktTE9MeHVDWEZVb3FfRDRMMGY4WGJLalgwZEowaWl4NVFObnpyUEZIXzhPS015MmtvVW9xempFMUVWSktJIiwidXNlIjpbImtleXMiLCJ0aWNrZXQiLCJuZXRtYXAiLCJyZXZvY2F0aW9ucyIsInB1cmdlIl0sIm5iZiI6MTc4ODgyNTYwMDAwMCwiZXhwIjoxODIyOTUzNjAwMDAwfSx7ImtpZCI6InRlc3QtYzIiLCJwdWIiOiJCTUFUOUR4dXVmRDRUcTBxTWNzbUI4S0hOZGxPMUtMTXZPNEZZWmV4d3JHbjQzdWp3UGdVd055NjlfeWhPeW5JZnZOeE4zRnppT3B6U2dLV0trYW1RTGsiLCJ1c2UiOlsia2V5cyIsInRpY2tldCIsIm5ldG1hcCIsInJldm9jYXRpb25zIiwicHVyZ2UiXSwibmJmIjoxNzkxNDE3NjAwMDAwLCJleHAiOjE4NTQ0ODk2MDAwMDB9XX0",
+        "sigs": [
+          {
+            "kid": "test-c1",
+            "s": "hhYcrjxMm7hUwXcch3NMCOXR5DV5QUX52j5pv2Z1JK4QKxpzJlyNT7DfGLRk-ezQadqM_5F2ml2vYMRrFSQ81A"
+          }
+        ]
+      },
+      "documentText": "{\"v\":1,\"t\":\"keys\",\"at\":1791417600000,\"keys\":[{\"kid\":\"test-c1\",\"pub\":\"BFUMBwlnW6JAuk-7MItm83u0L9-LOLxuCXFUoq_D4L0f8XbKjX0dJ0iix5QNnzrPFH_8OKMy2koUoqzjE1EVJKI\",\"use\":[\"keys\",\"ticket\",\"netmap\",\"revocations\",\"purge\"],\"nbf\":1788825600000,\"exp\":1822953600000},{\"kid\":\"test-c2\",\"pub\":\"BMAT9DxuufD4Tq0qMcsmB8KHNdlO1KLMvO4FYZexwrGn43ujwPgUwNy69_yhOynIfvNxN3FziOpzSgKWKkamQLk\",\"use\":[\"keys\",\"ticket\",\"netmap\",\"revocations\",\"purge\"],\"nbf\":1791417600000,\"exp\":1854489600000}]}"
+    },
+    "ticket": {
+      "valid": {
+        "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.i6kX2TCraEZYvIOjY2_PgSgdI3dKBpb7MlCI6GiYbdgj5ySuym6hIUIHXFfl0uaNQRcEwwaXPNmllp7BIeeszQ",
+        "payload": {
+          "v": 1,
+          "t": "ticket",
+          "kid": "test-c2",
+          "iss": "pocket.pocketcli.net",
+          "aud": "hk1",
+          "acct": "u_test0001",
+          "dev": "w1bzP7i5sMuhcmSd",
+          "addr": "100.64.0.11",
+          "kind": "phone",
+          "sig": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "peers": [
+            "100.64.0.21",
+            "100.64.0.22"
+          ],
+          "iat": 1791417600000,
+          "exp": 1791439200000,
+          "quota": {
+            "dayMB": 200,
+            "monthMB": 2048
+          }
+        },
+        "aud": "hk1",
+        "now": 1791421200000
+      },
+      "invalid": [
+        {
+          "name": "expired",
+          "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.i6kX2TCraEZYvIOjY2_PgSgdI3dKBpb7MlCI6GiYbdgj5ySuym6hIUIHXFfl0uaNQRcEwwaXPNmllp7BIeeszQ",
+          "options": {
+            "now": 1791439500001
+          },
+          "error": "expired"
+        },
+        {
+          "name": "for another relay",
+          "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.i6kX2TCraEZYvIOjY2_PgSgdI3dKBpb7MlCI6GiYbdgj5ySuym6hIUIHXFfl0uaNQRcEwwaXPNmllp7BIeeszQ",
+          "options": {
+            "aud": "r_selfhosted1"
+          },
+          "error": "wrong-aud"
+        },
+        {
+          "name": "self-hosted relay bound to another account",
+          "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.i6kX2TCraEZYvIOjY2_PgSgdI3dKBpb7MlCI6GiYbdgj5ySuym6hIUIHXFfl0uaNQRcEwwaXPNmllp7BIeeszQ",
+          "options": {
+            "acct": "u_other0001"
+          },
+          "error": "wrong-account"
+        },
+        {
+          "name": "payload modified",
+          "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiIsIjEwMC42NC4wLjk5Il0sImlhdCI6MTc5MTQxNzYwMDAwMCwiZXhwIjoxNzkxNDM5MjAwMDAwLCJxdW90YSI6eyJkYXlNQiI6MjAwLCJtb250aE1CIjoyMDQ4fX0.i6kX2TCraEZYvIOjY2_PgSgdI3dKBpb7MlCI6GiYbdgj5ySuym6hIUIHXFfl0uaNQRcEwwaXPNmllp7BIeeszQ",
+          "options": {},
+          "error": "bad-sig"
+        },
+        {
+          "name": "unknown key id",
+          "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jOSIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.4lrEheQNBeWhnHvFio7O7ByV27qBbH3Kz98W9yWAgb__YQff_HwJd-JIUUCXLRIxrclG838rKt5QlBs-0pzYQw",
+          "options": {},
+          "error": "unknown-key"
+        },
+        {
+          "name": "lifetime over 24 hours",
+          "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTUwNzYwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.B-Z9nU4C2umcRRMB35RTMtceV_U3hJqobgprO3Ii-oYfSg4gOjPCNyu5TNrLaZyDCnarRcLwXncy2s0BNqztgw",
+          "options": {},
+          "error": "bad-ticket"
+        }
+      ]
+    },
+    "relayAuth": {
+      "valid": {
+        "message": {
+          "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.i6kX2TCraEZYvIOjY2_PgSgdI3dKBpb7MlCI6GiYbdgj5ySuym6hIUIHXFfl0uaNQRcEwwaXPNmllp7BIeeszQ",
+          "a": "eyJ2IjoxLCJ0IjoicmVsYXktYXV0aCIsInJlbGF5IjoiaGsxIiwibm9uY2UiOiJ6Z3g3OTlOdklHaUR2NHhsQ0ktaEVnIiwidGgiOiJIZmNib1cxbG5nbEVCWUxNcThsZ2dibG1maVRMUXI1bHRVQ1VhajhXUDhFIiwidHMiOjE3OTE0MjEyMDAwMDB9",
+          "s": "2YBfiJuvm4Dku7XsIiV5csGvgd-4HXPu2ki_84Hm5TWLmWNNhh3Pq7nPOWJ_eQF2c_q8Zr3AX1_w7D1hlsAOJg"
+        },
+        "context": {
+          "relayId": "hk1",
+          "acct": "*",
+          "nonce": "zgx799NvIGiDv4xlCI-hEg",
+          "now": 1791421202000
+        }
+      },
+      "invalid": [
+        {
+          "name": "answers an old challenge",
+          "message": {
+            "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.i6kX2TCraEZYvIOjY2_PgSgdI3dKBpb7MlCI6GiYbdgj5ySuym6hIUIHXFfl0uaNQRcEwwaXPNmllp7BIeeszQ",
+            "a": "eyJ2IjoxLCJ0IjoicmVsYXktYXV0aCIsInJlbGF5IjoiaGsxIiwibm9uY2UiOiJ6Z3g3OTlOdklHaUR2NHhsQ0ktaEVnIiwidGgiOiJIZmNib1cxbG5nbEVCWUxNcThsZ2dibG1maVRMUXI1bHRVQ1VhajhXUDhFIiwidHMiOjE3OTE0MjEyMDAwMDB9",
+            "s": "2YBfiJuvm4Dku7XsIiV5csGvgd-4HXPu2ki_84Hm5TWLmWNNhh3Pq7nPOWJ_eQF2c_q8Zr3AX1_w7D1hlsAOJg"
+          },
+          "context": {
+            "nonce": "hXNc-Wj6gm7Gndg1y4P9nA"
+          },
+          "error": "bad-nonce"
+        },
+        {
+          "name": "stolen ticket, attacker key",
+          "message": {
+            "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.i6kX2TCraEZYvIOjY2_PgSgdI3dKBpb7MlCI6GiYbdgj5ySuym6hIUIHXFfl0uaNQRcEwwaXPNmllp7BIeeszQ",
+            "a": "eyJ2IjoxLCJ0IjoicmVsYXktYXV0aCIsInJlbGF5IjoiaGsxIiwibm9uY2UiOiJ6Z3g3OTlOdklHaUR2NHhsQ0ktaEVnIiwidGgiOiJIZmNib1cxbG5nbEVCWUxNcThsZ2dibG1maVRMUXI1bHRVQ1VhajhXUDhFIiwidHMiOjE3OTE0MjEyMDAwMDB9",
+            "s": "x-fVHM5LWJdlHvuqwxhrWBWwr44_PINLl31T6yKyRjuyU1XKa53Y1RfdWmel5P0JkjNjFmVTRfPuE2qYuRxcGw"
+          },
+          "context": {},
+          "error": "bad-sig"
+        },
+        {
+          "name": "proof made for another relay",
+          "message": {
+            "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiaGsxIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOlsiMTAwLjY0LjAuMjEiLCIxMDAuNjQuMC4yMiJdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMCwicXVvdGEiOnsiZGF5TUIiOjIwMCwibW9udGhNQiI6MjA0OH19.i6kX2TCraEZYvIOjY2_PgSgdI3dKBpb7MlCI6GiYbdgj5ySuym6hIUIHXFfl0uaNQRcEwwaXPNmllp7BIeeszQ",
+            "a": "eyJ2IjoxLCJ0IjoicmVsYXktYXV0aCIsInJlbGF5Ijoicl9zZWxmaG9zdGVkMSIsIm5vbmNlIjoiemd4Nzk5TnZJR2lEdjR4bENJLWhFZyIsInRoIjoiSGZjYm9XMWxuZ2xFQllMTXE4bGdnYmxtZmlUTFFyNWx0VUNVYWo4V1A4RSIsInRzIjoxNzkxNDIxMjAwMDAwfQ",
+            "s": "xAaI8eR5JaHT3XH_QlMs6W3WI4ZARcHvqW0JIvZG2WOFbCUdeu-k1IjwKyuS8E_dQFR00RGaf74THeictYW0Bg"
+          },
+          "context": {},
+          "error": "bad-proof"
+        }
+      ]
+    },
+    "asrAuth": {
+      "ticket": "eyJ2IjoxLCJ0IjoidGlja2V0Iiwia2lkIjoidGVzdC1jMiIsImlzcyI6InBvY2tldC5wb2NrZXRjbGkubmV0IiwiYXVkIjoiYXNyOm9mZmljaWFsIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwic2lnIjoiQkpMX1FqM2cxajhyN3FxQjk5cWdyWnE5Tkk5VEU3eWRldERWMG9jWXpELW56Y0JFUE1JdzRnNF95MFAwNTk4VUI0VHNtSHR0cEdIbWRIU3hwdnhOVlQ0IiwicGVlcnMiOltdLCJpYXQiOjE3OTE0MTc2MDAwMDAsImV4cCI6MTc5MTQzOTIwMDAwMH0.RQqSg3NjfVt3_Tv5_xgF2AUSZ47x10z3tikXMg0MSjte4zmmBs1QCdvDTsaw8uKPRmGuyTrxmSY08o0oWir4QQ",
+      "proof": {
+        "a": "eyJ2IjoxLCJ0IjoiYXNyLWF1dGgiLCJhdWQiOiJhc3I6b2ZmaWNpYWwiLCJ0cyI6MTc5MTQyMTIwMDAwMCwibm9uY2UiOiJyRlFpOWJQWXE3MFdFWF9MZHhxN0VRIiwiYm9keVNoYSI6ImR1M1FSUzI5dWV3TF9TYjhCQ2xrMUtrRnlqdXVSN3kxRXU5Zm1FWTZRMUEifQ",
+        "s": "ngSIsW4f6gT656VdD3Io4oZPpP1S9N7XIzLwZGFBPJWrq8-9FA0TYUyamhkMgdhEktf9xDnvZ0GcWw-9CIIfVw"
+      },
+      "body": {
+        "pattern": "byte i = i mod 251",
+        "length": 3200
+      },
+      "now": 1791421200500,
+      "aud": "asr:official",
+      "badBodyLength": 3201,
+      "badBodyError": "body-mismatch"
+    },
+    "enrollAuth": {
+      "valid": {
+        "message": {
+          "a": "eyJ2IjoxLCJ0IjoiZW5yb2xsLWF1dGgiLCJ0aCI6IkRLVHMyaExfRFI5bHpMVG9qam9uQU5feGdDby1KUVJyR1RuZ1VDOXUxcjgiLCJzaWciOiJCSkxfUWozZzFqOHI3cXFCOTlxZ3JacTlOSTlURTd5ZGV0RFYwb2NZekQtbnpjQkVQTUl3NGc0X3kwUDA1OThVQjRUc21IdHRwR0htZEhTeHB2eE5WVDQiLCJreCI6IkJBcXVoVEc1ZHRoZ3NlYWI1ZVB0TTVzXzltdFI4NVRmRHFRTE9BUlZ4eXItN0tvbFpPWGJ1TXBjV3NEQzktaGMxbG9PU1BlUmNyZ0xCNV9LMndVOHNTdyIsInRzIjoxNzkxNDIxMjAwMDAwfQ",
+          "s": "CyEic9PdZB9rzfpIJxp7TnWg91wV3gqfQ3r_gHOH_yfoLtAZYOi0EHDonoI8WrKjQYIY_CUCPQsJgD_XuONN9Q"
+        },
+        "context": {
+          "token": "test-user-token-0001",
+          "sig": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kx": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "now": 1791421201500
+        },
+        "fields": {
+          "th": "DKTs2hL_DR9lzLTojjonAN_xgCo-JQRrGTngUC9u1r8",
+          "sig": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kx": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "ts": 1791421200000
+        }
+      },
+      "invalid": [
+        {
+          "name": "someone else's public keys, signed with the attacker's key",
+          "message": {
+            "a": "eyJ2IjoxLCJ0IjoiZW5yb2xsLWF1dGgiLCJ0aCI6IkRLVHMyaExfRFI5bHpMVG9qam9uQU5feGdDby1KUVJyR1RuZ1VDOXUxcjgiLCJzaWciOiJCSkxfUWozZzFqOHI3cXFCOTlxZ3JacTlOSTlURTd5ZGV0RFYwb2NZekQtbnpjQkVQTUl3NGc0X3kwUDA1OThVQjRUc21IdHRwR0htZEhTeHB2eE5WVDQiLCJreCI6IkJBcXVoVEc1ZHRoZ3NlYWI1ZVB0TTVzXzltdFI4NVRmRHFRTE9BUlZ4eXItN0tvbFpPWGJ1TXBjV3NEQzktaGMxbG9PU1BlUmNyZ0xCNV9LMndVOHNTdyIsInRzIjoxNzkxNDIxMjAwMDAwfQ",
+            "s": "FINsPEBWFZ5to0zpaVtgtGCrD1DDcrL0uP88GeeuxLLIyesHDVs5KnMPr_3OoMqQOWI6T1qB4AlYOsowRkKZPA"
+          },
+          "context": {},
+          "error": "bad-sig"
+        },
+        {
+          "name": "the same proof presented with another login token",
+          "message": {
+            "a": "eyJ2IjoxLCJ0IjoiZW5yb2xsLWF1dGgiLCJ0aCI6IkRLVHMyaExfRFI5bHpMVG9qam9uQU5feGdDby1KUVJyR1RuZ1VDOXUxcjgiLCJzaWciOiJCSkxfUWozZzFqOHI3cXFCOTlxZ3JacTlOSTlURTd5ZGV0RFYwb2NZekQtbnpjQkVQTUl3NGc0X3kwUDA1OThVQjRUc21IdHRwR0htZEhTeHB2eE5WVDQiLCJreCI6IkJBcXVoVEc1ZHRoZ3NlYWI1ZVB0TTVzXzltdFI4NVRmRHFRTE9BUlZ4eXItN0tvbFpPWGJ1TXBjV3NEQzktaGMxbG9PU1BlUmNyZ0xCNV9LMndVOHNTdyIsInRzIjoxNzkxNDIxMjAwMDAwfQ",
+            "s": "CyEic9PdZB9rzfpIJxp7TnWg91wV3gqfQ3r_gHOH_yfoLtAZYOi0EHDonoI8WrKjQYIY_CUCPQsJgD_XuONN9Q"
+          },
+          "context": {
+            "token": "test-user-token-0002"
+          },
+          "error": "bad-proof"
+        },
+        {
+          "name": "proof made for other keys",
+          "message": {
+            "a": "eyJ2IjoxLCJ0IjoiZW5yb2xsLWF1dGgiLCJ0aCI6IkRLVHMyaExfRFI5bHpMVG9qam9uQU5feGdDby1KUVJyR1RuZ1VDOXUxcjgiLCJzaWciOiJCSkxfUWozZzFqOHI3cXFCOTlxZ3JacTlOSTlURTd5ZGV0RFYwb2NZekQtbnpjQkVQTUl3NGc0X3kwUDA1OThVQjRUc21IdHRwR0htZEhTeHB2eE5WVDQiLCJreCI6IkJBcXVoVEc1ZHRoZ3NlYWI1ZVB0TTVzXzltdFI4NVRmRHFRTE9BUlZ4eXItN0tvbFpPWGJ1TXBjV3NEQzktaGMxbG9PU1BlUmNyZ0xCNV9LMndVOHNTdyIsInRzIjoxNzkxNDIxMjAwMDAwfQ",
+            "s": "CyEic9PdZB9rzfpIJxp7TnWg91wV3gqfQ3r_gHOH_yfoLtAZYOi0EHDonoI8WrKjQYIY_CUCPQsJgD_XuONN9Q"
+          },
+          "context": {
+            "sig": "BN49QqXVfI5aY1IAuBW_pe3nD5s42e2V6WeXtq-B74Oy8pO7rxH9JVQaispIqTM4mrvdsuCQrxqmV7E-IGXcyKE",
+            "kx": "BBBkPxYkprxafXoJal_NPs3zhhU2CcDaUq_191ODCWwgxCZ3onrheXljuvnVvv3z-yrJZEnQi3b6n6elkIL76uo"
+          },
+          "error": "bad-proof"
+        },
+        {
+          "name": "older than five minutes",
+          "message": {
+            "a": "eyJ2IjoxLCJ0IjoiZW5yb2xsLWF1dGgiLCJ0aCI6IkRLVHMyaExfRFI5bHpMVG9qam9uQU5feGdDby1KUVJyR1RuZ1VDOXUxcjgiLCJzaWciOiJCSkxfUWozZzFqOHI3cXFCOTlxZ3JacTlOSTlURTd5ZGV0RFYwb2NZekQtbnpjQkVQTUl3NGc0X3kwUDA1OThVQjRUc21IdHRwR0htZEhTeHB2eE5WVDQiLCJreCI6IkJBcXVoVEc1ZHRoZ3NlYWI1ZVB0TTVzXzltdFI4NVRmRHFRTE9BUlZ4eXItN0tvbFpPWGJ1TXBjV3NEQzktaGMxbG9PU1BlUmNyZ0xCNV9LMndVOHNTdyIsInRzIjoxNzkxNDIxMjAwMDAwfQ",
+            "s": "CyEic9PdZB9rzfpIJxp7TnWg91wV3gqfQ3r_gHOH_yfoLtAZYOi0EHDonoI8WrKjQYIY_CUCPQsJgD_XuONN9Q"
+          },
+          "context": {
+            "now": 1791421500001
+          },
+          "error": "stale"
+        },
+        {
+          "name": "a relay proof offered as an enrollment proof",
+          "message": {
+            "a": "eyJ2IjoxLCJ0IjoicmVsYXktYXV0aCIsInRoIjoiREtUczJoTF9EUjlsekxUb2pqb25BTl94Z0NvLUpRUnJHVG5nVUM5dTFyOCIsInNpZyI6IkJKTF9RajNnMWo4cjdxcUI5OXFnclpxOU5JOVRFN3lkZXREVjBvY1l6RC1uemNCRVBNSXc0ZzRfeTBQMDU5OFVCNFRzbUh0dHBHSG1kSFN4cHZ4TlZUNCIsImt4IjoiQkFxdWhURzVkdGhnc2VhYjVlUHRNNXNfOW10Ujg1VGZEcVFMT0FSVnh5ci03S29sWk9YYnVNcGNXc0RDOS1oYzFsb09TUGVSY3JnTEI1X0syd1U4c1N3IiwidHMiOjE3OTE0MjEyMDAwMDB9",
+            "s": "Jao2a9KI-YWfwxVsZ0VkjQsfpYLGlQ0ZZn8xszsk8LDArsBKydp6Ki0s-RQ-p52OfnH4PZtDKqIVR8Izs5lNhg"
+          },
+          "context": {},
+          "error": "bad-proof"
+        },
+        {
+          "name": "enroll-auth payload signed under another label",
+          "message": {
+            "a": "eyJ2IjoxLCJ0IjoiZW5yb2xsLWF1dGgiLCJ0aCI6IkRLVHMyaExfRFI5bHpMVG9qam9uQU5feGdDby1KUVJyR1RuZ1VDOXUxcjgiLCJzaWciOiJCSkxfUWozZzFqOHI3cXFCOTlxZ3JacTlOSTlURTd5ZGV0RFYwb2NZekQtbnpjQkVQTUl3NGc0X3kwUDA1OThVQjRUc21IdHRwR0htZEhTeHB2eE5WVDQiLCJreCI6IkJBcXVoVEc1ZHRoZ3NlYWI1ZVB0TTVzXzltdFI4NVRmRHFRTE9BUlZ4eXItN0tvbFpPWGJ1TXBjV3NEQzktaGMxbG9PU1BlUmNyZ0xCNV9LMndVOHNTdyIsInRzIjoxNzkxNDIxMjAwMDAwfQ",
+            "s": "xSCPsc2cNAmZzuDmyLcEjQ3uH78RfSNG_5_31v_jBoKV7laApnz-nlCu_Y6ds61oR7iXDrm_3GK8mDqiaM8Vvw"
+          },
+          "context": {},
+          "error": "bad-sig"
+        }
+      ]
+    },
+    "netmap": {
+      "doc": {
+        "p": "eyJ2IjoxLCJ0IjoibmV0bWFwIiwia2lkIjoidGVzdC1jMiIsImFjY3QiOiJ1X3Rlc3QwMDAxIiwiYXQiOjE3OTE0MjEyMDAwMDAsInZlciI6NDIsInNlbGYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwibG9jayI6eyJzZXEiOjksImgiOiJPMFRHcFY0WnVIZnRSc1lTT2NlV0NvRnAxRUZfa2cwc09kckNPYTdCMW1BIiwiZ2VuZXNpcyI6InNDREFIeWNFdGtReHZMVjBwczR0bVNuTzVmY1plN0ptRU5iVDlMMWF3eHMifSwiZGV2aWNlcyI6W3siaWQiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwiYWRkciI6IjEwMC42NC4wLjExIiwia2luZCI6InBob25lIiwicGxhdGZvcm0iOiJpb3MiLCJuYW1lIjoiaVBob25lIEEiLCJzaWciOiJCSkxfUWozZzFqOHI3cXFCOTlxZ3JacTlOSTlURTd5ZGV0RFYwb2NZekQtbnpjQkVQTUl3NGc0X3kwUDA1OThVQjRUc21IdHRwR0htZEhTeHB2eE5WVDQiLCJreCI6IkJBcXVoVEc1ZHRoZ3NlYWI1ZVB0TTVzXzltdFI4NVRmRHFRTE9BUlZ4eXItN0tvbFpPWGJ1TXBjV3NEQzktaGMxbG9PU1BlUmNyZ0xCNV9LMndVOHNTdyIsInN0YXR1cyI6ImFjdGl2ZSIsIm9ubGluZSI6dHJ1ZSwibGFzdFNlZW4iOjE3OTE0MjEyMDAwMDB9LHsiaWQiOiJvb0VCUEtKZEFPSHZZeFBTIiwiYWRkciI6IjEwMC42NC4wLjIxIiwia2luZCI6ImNvbXB1dGVyIiwicGxhdGZvcm0iOiJtYWMiLCJuYW1lIjoiTWFjQm9vayBDIiwic2lnIjoiQkdWZXN4a19rWHptTUQ2MVdydl9EWThTTWJRcE43U3loa21GX3pVOVM1VDNhY05TbFViUXZ5ZmJoUk9WM0hYekN0UGhCVl8zNmpxZWtMVkZYNXI0THQ4Iiwia3giOiJCTEJmazVoMUVVbzZqY1l5WnlISmdJeTdnVV9KNTBIbjUzNzhhaUNvZ2R1MnJMMDJNSG1hcEFYQ2JWQmQ1NFBmc1J3aUVUR3RIS1hSaW9tYzl2eVFWYU0iLCJzdGF0dXMiOiJhY3RpdmUiLCJvbmxpbmUiOnRydWUsImxhc3RTZWVuIjoxNzkxNDIxMjAwMDAwfSx7ImlkIjoia0RtUDZONDBwbWYyVmtfdSIsImFkZHIiOiIxMDAuNjQuMC4yMiIsImtpbmQiOiJjb21wdXRlciIsInBsYXRmb3JtIjoid2luZG93cyIsIm5hbWUiOiJQQyBEIiwic2lnIjoiQk5GZ0VaRnB3dFd1WVJnMy0wTFdtdkFJakhneXFxdURILThOZDdqVjVKRkduTDZWY2hVTjQ3a3pBTjVlZDZBa3BoZEhyS2thRTV1eVR5eUp4ejBrSXJVIiwia3giOiJCSnNLbDdsdFR1aVJVcThacTQ0N1dfZm5rX2FLU01nMVdZV3pmYlVxb2ZOak9abTBvT3J2YWg1bGdJbmFzR3lMeENHT294aGFfMTJQLWt6SUdxQjRBYUUiLCJzdGF0dXMiOiJhY3RpdmUiLCJvbmxpbmUiOmZhbHNlLCJsYXN0U2VlbiI6MTc5MTQyMTIwMDAwMH1dLCJyZWxheSI6eyJpZCI6ImhrMSIsInVybCI6Imh0dHBzOi8vcG9ja2V0LnBvY2tldGNsaS5uZXQvcmVsYXkiLCJyZWdpb24iOiJoayIsImtpbmQiOiJvZmZpY2lhbCJ9LCJyZWxheXMiOlt7ImlkIjoiaGsxIiwidXJsIjoiaHR0cHM6Ly9wb2NrZXQucG9ja2V0Y2xpLm5ldC9yZWxheSIsInJlZ2lvbiI6ImhrIiwia2luZCI6Im9mZmljaWFsIiwic3RhdGUiOiJ2ZXJpZmllZCJ9XSwicHJlZnMiOnsibGlzdERheXMiOjJ9LCJsYW5nIjoiemgiLCJhc3IiOnsib2ZmaWNpYWwiOnsidXJsIjoiaHR0cHM6Ly9wb2NrZXQucG9ja2V0Y2xpLm5ldC9hc3IiLCJhdWQiOiJhc3I6b2ZmaWNpYWwifX19",
+        "s": "qgwnF22jn949xgW0Ye5fq7wxVR7JZ1Txx46yvV9I7EAXQeHOoI170k61B_2JGvNGagr9SwJwUmBCe_mhUqZ5CA"
+      },
+      "payload": {
+        "v": 1,
+        "t": "netmap",
+        "kid": "test-c2",
+        "acct": "u_test0001",
+        "at": 1791421200000,
+        "ver": 42,
+        "self": "w1bzP7i5sMuhcmSd",
+        "lock": {
+          "seq": 9,
+          "h": "O0TGpV4ZuHftRsYSOceWCoFp1EF_kg0sOdrCOa7B1mA",
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs"
+        },
+        "devices": [
+          {
+            "id": "w1bzP7i5sMuhcmSd",
+            "addr": "100.64.0.11",
+            "kind": "phone",
+            "platform": "ios",
+            "name": "iPhone A",
+            "sig": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+            "kx": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+            "status": "active",
+            "online": true,
+            "lastSeen": 1791421200000
+          },
+          {
+            "id": "ooEBPKJdAOHvYxPS",
+            "addr": "100.64.0.21",
+            "kind": "computer",
+            "platform": "mac",
+            "name": "MacBook C",
+            "sig": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+            "kx": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+            "status": "active",
+            "online": true,
+            "lastSeen": 1791421200000
+          },
+          {
+            "id": "kDmP6N40pmf2Vk_u",
+            "addr": "100.64.0.22",
+            "kind": "computer",
+            "platform": "windows",
+            "name": "PC D",
+            "sig": "BNFgEZFpwtWuYRg3-0LWmvAIjHgyqquDH-8Nd7jV5JFGnL6VchUN47kzAN5ed6AkphdHrKkaE5uyTyyJxz0kIrU",
+            "kx": "BJsKl7ltTuiRUq8Zq447W_fnk_aKSMg1WYWzfbUqofNjOZm0oOrvah5lgInasGyLxCGOoxha_12P-kzIGqB4AaE",
+            "status": "active",
+            "online": false,
+            "lastSeen": 1791421200000
+          }
+        ],
+        "relay": {
+          "id": "hk1",
+          "url": "https://pocket.pocketcli.net/relay",
+          "region": "hk",
+          "kind": "official"
+        },
+        "relays": [
+          {
+            "id": "hk1",
+            "url": "https://pocket.pocketcli.net/relay",
+            "region": "hk",
+            "kind": "official",
+            "state": "verified"
+          }
+        ],
+        "prefs": {
+          "listDays": 2
+        },
+        "lang": "zh",
+        "asr": {
+          "official": {
+            "url": "https://pocket.pocketcli.net/asr",
+            "aud": "asr:official"
+          }
+        }
+      }
+    },
+    "revocations": {
+      "doc": {
+        "p": "eyJ2IjoxLCJ0IjoicmV2b2NhdGlvbnMiLCJraWQiOiJ0ZXN0LWMyIiwiYXQiOjE3OTE0MjQ4MDAwMDAsImFjY3QiOiJ1X3Rlc3QwMDAxIiwic2luY2UiOjAsIm5leHQiOjIsIml0ZW1zIjpbeyJhZGRyIjoiMTAwLjY0LjAuMTIiLCJkZXYiOiJWSTBuZ0ViUUlTdTNYclpYIiwibmJmIjo5MDA3MTk5MjU0NzQwOTkxLCJnb25lIjp0cnVlLCJhdCI6MTc5MTQyNDgwMDAwMH0seyJhZGRyIjoiMTAwLjY0LjAuMTEiLCJkZXYiOiJ3MWJ6UDdpNXNNdWhjbVNkIiwibmJmIjoxNzkxNDI0ODAwMDAwLCJhdCI6MTc5MTQyNDgwMDAwMH1dfQ",
+        "s": "VKXCLKxo2tqib9meuGFwJF0uz-RTMvzKbitAAer9tkF_1AW0vO5O7FEhdzPpGkZ5h9oUb6hf1PrA8zyejdsi5Q"
+      },
+      "payload": {
+        "v": 1,
+        "t": "revocations",
+        "kid": "test-c2",
+        "at": 1791424800000,
+        "acct": "u_test0001",
+        "since": 0,
+        "next": 2,
+        "items": [
+          {
+            "addr": "100.64.0.12",
+            "dev": "VI0ngEbQISu3XrZX",
+            "nbf": 9007199254740991,
+            "gone": true,
+            "at": 1791424800000
+          },
+          {
+            "addr": "100.64.0.11",
+            "dev": "w1bzP7i5sMuhcmSd",
+            "nbf": 1791424800000,
+            "at": 1791424800000
+          }
+        ]
+      }
+    },
+    "purge": {
+      "doc": {
+        "p": "eyJ2IjoxLCJ0IjoicHVyZ2UiLCJraWQiOiJ0ZXN0LWMyIiwiYWNjdCI6InVfdGVzdDAwMDEiLCJhdCI6MTc5MTQyODQwMDAwMCwicmVsYXkiOiJoazEifQ",
+        "s": "7mwhh7iUWpQLZ2dza7hRy2PD5fDJVe92QsP2xDgFcoLm1ZHyeYzQeZByyXNzPzXCnwlD3PAmGbhDyLkMbusl4g"
+      },
+      "payload": {
+        "v": 1,
+        "t": "purge",
+        "kid": "test-c2",
+        "acct": "u_test0001",
+        "at": 1791428400000,
+        "relay": "hk1"
+      }
+    },
+    "labelConfusion": {
+      "note": "a netmap document checked as a purge order must fail",
+      "error": "bad-format"
+    }
+  }
+}

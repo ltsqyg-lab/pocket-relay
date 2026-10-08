@@ -1,0 +1,19 @@
+{
+  "name": "pocket-relay",
+  "version": "0.1.0",
+  "description": "Pocket relay: routes and stores end-to-end encrypted envelopes, objects and attachments between a user's devices. Zero dependencies.",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  },
+  "main": "src/main.mjs",
+  "bin": {
+    "pocket-relay": "src/main.mjs"
+  },
+  "scripts": {
+    "start": "node src/main.mjs",
+    "test": "node --test --test-timeout=120000 test/*.test.mjs"
+  }
+}
