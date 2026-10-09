@@ -2,8 +2,8 @@
 
 - The specifications (`*.md` in this directory) are licensed under
   [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-- `gen-vectors.mjs` (the reference implementation that generates and checks `vectors.json`) and `vectors.json` are
-  licensed under the MIT License (below).
+- `gen-vectors.mjs` (the reference implementation that generates and checks `vectors.json`), `vectors.json`, and the
+  pairing-code reference implementation `pake.mjs` (SPAKE2, RFC 9382) with its tests are licensed under the MIT License (below).
 - `wordlists/` are the BIP-39 word lists, MIT-licensed by their authors (see `wordlists/README.md`).
 
 MIT License

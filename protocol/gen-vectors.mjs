@@ -16,6 +16,9 @@
  * (relay/, server/, asr/, agent/) can import this file in their own tests as an oracle; product code must still be
  * its own implementation and pass vectors.json.
  *
+ * Device pairing (E2EE.md §6): the implementation products copy is pake.mjs (tests: pake.test.mjs). Section 9b here is a
+ * second, independent SPAKE2 that generates and checks the `spake2` and `pair` vectors; main() runs pake.mjs against them.
+ *
  * Every private key in this file is public test material. Never use any of it outside tests.
  */
 import crypto from 'node:crypto'
@@ -611,6 +614,169 @@ export function verifyEnrollAuth({ a, s }, { token, sig, kx, now }) {
 }
 
 // ============================================================================================================
+// 9b. device pairing (E2EE.md §6): pairing code + SPAKE2 (RFC 9382) — an independent second implementation
+// ============================================================================================================
+// Products copy pake.mjs (the reference implementation of the pairing). The functions below exist only to generate
+// and check the `spake2` and `pair` vectors with different code — affine double-and-add (padd / pmul in §2), Node's own
+// HKDF, separate encodings — so that the two implementations have to agree. main() also runs pake.mjs against the
+// vectors when it sits next to this file.
+const PAIR_LABEL = 'pocket-pair/1'
+const SPAKE2_M_HEX = '02886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12f'   // RFC 9382 §6, P-256
+const SPAKE2_N_HEX = '03d8bbd6c639c62937b04d997f38c3770719c629d7014d49a24b4f98baa1292b49'
+/** RFC 9382 Appendix B (SPAKE2-P256-SHA256-HKDF-HMAC, no AAD), copied from the RFC text; build() must reproduce them. */
+const RFC9382_P256 = [
+  {
+    A: 'server', B: 'client',
+    w: '2ee57912099d31560b3a44b1184b9b4866e904c49d12ac5042c97dca461b1a5f',
+    x: '43dd0fd7215bdcb482879fca3220c6a968e66d70b1356cac18bb26c84a78d729',
+    y: 'dcb60106f276b02606d8ef0a328c02e4b629f84f89786af5befb0bc75b6e66be',
+    pA: '04a56fa807caaa53a4d28dbb9853b9815c61a411118a6fe516a8798434751470f9010153ac33d0d5f2047ffdb1a3e42c' +
+      '9b4e6be662766e1eeb4116988ede5f912c',
+    pB: '0406557e482bd03097ad0cbaa5df82115460d951e3451962f1eaf4367a420676d09857ccbc522686c83d1852abfa8ed6' +
+      'e4a1155cf8f1543ceca528afb591a1e0b7',
+    K: '0412af7e89717850671913e6b469ace67bd90a4df8ce45c2af19010175e37eed69f75897996d539356e2fa6a406d5285' +
+      '01f907e04d97515fbe83db277b715d3325',
+    TT: '06000000000000007365727665720600000000000000636c69656e74410000000000000004a56fa807caaa53a4d28dbb' +
+      '9853b9815c61a411118a6fe516a8798434751470f9010153ac33d0d5f2047ffdb1a3e42c9b4e6be662766e1eeb411698' +
+      '8ede5f912c41000000000000000406557e482bd03097ad0cbaa5df82115460d951e3451962f1eaf4367a420676d09857' +
+      'ccbc522686c83d1852abfa8ed6e4a1155cf8f1543ceca528afb591a1e0b741000000000000000412af7e897178506719' +
+      '13e6b469ace67bd90a4df8ce45c2af19010175e37eed69f75897996d539356e2fa6a406d528501f907e04d97515fbe83' +
+      'db277b715d332520000000000000002ee57912099d31560b3a44b1184b9b4866e904c49d12ac5042c97dca461b1a5f',
+    hashTT: '0e0672dc86f8e45565d338b0540abe6915bdf72e2b35b5c9e5663168e960a91b',
+    Ke: '0e0672dc86f8e45565d338b0540abe69',
+    Ka: '15bdf72e2b35b5c9e5663168e960a91b',
+    KcA: '00c12546835755c86d8c0db7851ae86f',
+    KcB: 'a9fa3406c3b781b93d804485430ca27a',
+    cA: '58ad4aa88e0b60d5061eb6b5dd93e80d9c4f00d127c65b3b35b1b5281fee38f0',
+    cB: 'd3e2e547f1ae04f2dbdbf0fc4b79f8ecff2dff314b5d32fe9fcef2fb26dc459b',
+  },
+  {
+    A: '', B: 'client',
+    w: '0548d8729f730589e579b0475a582c1608138ddf7054b73b5381c7e883e2efae',
+    x: '403abbe3b1b4b9ba17e3032849759d723939a27a27b9d921c500edde18ed654b',
+    y: '903023b6598908936ea7c929bd761af6039577a9c3f9581064187c3049d87065',
+    pA: '04a897b769e681c62ac1c2357319a3d363f610839c4477720d24cbe32f5fd85f44fb92ba966578c1b712be6962498834' +
+      '078262caa5b441ecfa9d4a9485720e918a',
+    pB: '04e0f816fd1c35e22065d5556215c097e799390d16661c386e0ecc84593974a61b881a8c82327687d0501862970c6456' +
+      '5560cb5671f696048050ca66ca5f8cc7fc',
+    K: '048f83ec9f6e4f87cc6f9dc740bdc2769725f923364f01c84148c049a39a735ebda82eac03e00112fd6a5710682767cf' +
+      'f5361f7e819e53d8d3c3a2922e0d837aa6',
+    TT: '00000000000000000600000000000000636c69656e74410000000000000004a897b769e681c62ac1c2357319a3d363f6' +
+      '10839c4477720d24cbe32f5fd85f44fb92ba966578c1b712be6962498834078262caa5b441ecfa9d4a9485720e918a41' +
+      '0000000000000004e0f816fd1c35e22065d5556215c097e799390d16661c386e0ecc84593974a61b881a8c82327687d0' +
+      '501862970c64565560cb5671f696048050ca66ca5f8cc7fc4100000000000000048f83ec9f6e4f87cc6f9dc740bdc276' +
+      '9725f923364f01c84148c049a39a735ebda82eac03e00112fd6a5710682767cff5361f7e819e53d8d3c3a2922e0d837a' +
+      'a620000000000000000548d8729f730589e579b0475a582c1608138ddf7054b73b5381c7e883e2efae',
+    hashTT: '642f05c473c2cd79909f9a841e2f30a70bf89b18180af97353ba198789c2b963',
+    Ke: '642f05c473c2cd79909f9a841e2f30a7',
+    Ka: '0bf89b18180af97353ba198789c2b963',
+    KcA: 'c6be376fc7cd1301fd0a13adf3e7bffd',
+    KcB: 'b7243f4ae60440a49b3f8cab3c1fba07',
+    cA: '47d29e6666af1b7dd450d571233085d7a9866e4d49d2645e2df975489521232b',
+    cB: '3313c5cefc361d27fb16847a91c2a73b766ffa90a4839122a9b70a2f6bd1d6df',
+  },
+  {
+    A: 'server', B: '',
+    w: '626e0cdc7b14c9db3e52a0b1b3a768c98e37852d5db30febe0497b14eae8c254',
+    x: '07adb3db6bc623d3399726bfdbfd3d15a58ea776ab8a308b00392621291f9633',
+    y: 'b6a4fc8dbb629d4ba51d6f91ed1532cf87adec98f25dd153a75accafafedec16',
+    pA: '04f88fb71c99bfffaea370966b7eb99cd4be0ff1a7d335caac4211c4afd855e2e15a873b298503ad8ba1d9cbb9a392d2' +
+      'ba309b48bfd7879aefd0f2cea6009763b0',
+    pB: '040c269d6be017dccb15182ac6bfcd9e2a14de019dd587eaf4bdfd353f031101e7cca177f8eb362a6e83e7d5e729c073' +
+      '2e1b528879c086f39ba0f31a9661bd34db',
+    K: '0445ee233b8ecb51ebd6e7da3f307e88a1616bae2166121221fdc0dadb986afaf3ec8a988dc9c626fa3b99f58a7ca7c9' +
+      'b844bb3e8dd9554aafc5b53813504c1cbe',
+    TT: '06000000000000007365727665720000000000000000410000000000000004f88fb71c99bfffaea370966b7eb99cd4be' +
+      '0ff1a7d335caac4211c4afd855e2e15a873b298503ad8ba1d9cbb9a392d2ba309b48bfd7879aefd0f2cea6009763b041' +
+      '00000000000000040c269d6be017dccb15182ac6bfcd9e2a14de019dd587eaf4bdfd353f031101e7cca177f8eb362a6e' +
+      '83e7d5e729c0732e1b528879c086f39ba0f31a9661bd34db41000000000000000445ee233b8ecb51ebd6e7da3f307e88' +
+      'a1616bae2166121221fdc0dadb986afaf3ec8a988dc9c626fa3b99f58a7ca7c9b844bb3e8dd9554aafc5b53813504c1c' +
+      'be2000000000000000626e0cdc7b14c9db3e52a0b1b3a768c98e37852d5db30febe0497b14eae8c254',
+    hashTT: '005184ff460da2ce59062c87733c299c3521297d736598fc0a1127600efa1afb',
+    Ke: '005184ff460da2ce59062c87733c299c',
+    Ka: '3521297d736598fc0a1127600efa1afb',
+    KcA: 'f3da53604f0aeecea5a33be7bddf6edf',
+    KcB: '9e3f86848736f159bd92b6e107ec6799',
+    cA: 'bc9f9bbe99f26d0b2260e6456e05a86196a3307ec6663a18bf6ac825736533b2',
+    cB: 'c2370e1bf813b086dff0d834e74425a06e6390f48f5411900276dcccc5a297ec',
+  },
+  {
+    A: '', B: '',
+    w: '7bf46c454b4c1b25799527d896508afd5fc62ef4ec59db1efb49113063d70cca',
+    x: '8cef65df64bb2d0f83540c53632de911b5b24b3eab6cc74a97609fd659e95473',
+    y: 'd7a66f64074a84652d8d623a92e20c9675c61cb5b4f6a0063e4648a2fdc02d53',
+    pA: '04a65b367a3f613cf9f0654b1b28a1e3a8a40387956c8ba6063e8658563890f46ca1ef6a676598889fc28de2950ab812' +
+      '0b79a5ef1ea4c9f44bc98f585634b46d66',
+    pB: '04589f13218822710d98d8b2123a079041052d9941b9cf88c6617ddb2fcc0494662eea8ba6b64692dc318250030c6af0' +
+      '45cb738bc81ba35b043c3dcb46adf6f58d',
+    K: '041a3c03d51b452537ca2a1fea6110353c6d5ed483c4f0f86f4492ca3f378d40a994b4477f93c64d928edbbcd3e85a7c' +
+      '709b7ea73ee97986ce3d1438e135543772',
+    TT: '00000000000000000000000000000000410000000000000004a65b367a3f613cf9f0654b1b28a1e3a8a40387956c8ba6' +
+      '063e8658563890f46ca1ef6a676598889fc28de2950ab8120b79a5ef1ea4c9f44bc98f585634b46d6641000000000000' +
+      '0004589f13218822710d98d8b2123a079041052d9941b9cf88c6617ddb2fcc0494662eea8ba6b64692dc318250030c6a' +
+      'f045cb738bc81ba35b043c3dcb46adf6f58d4100000000000000041a3c03d51b452537ca2a1fea6110353c6d5ed483c4' +
+      'f0f86f4492ca3f378d40a994b4477f93c64d928edbbcd3e85a7c709b7ea73ee97986ce3d1438e1355437722000000000' +
+      '0000007bf46c454b4c1b25799527d896508afd5fc62ef4ec59db1efb49113063d70cca',
+    hashTT: 'fc6374762ba5cf11f4b2caa08b2cd1b9907ae0e26e8d6234318d91583cd74c86',
+    Ke: 'fc6374762ba5cf11f4b2caa08b2cd1b9',
+    Ka: '907ae0e26e8d6234318d91583cd74c86',
+    KcA: '5dbd2f477166b7fb6d61febbd77a5563',
+    KcB: '7689b4654407a5faeffdc8f18359d8a3',
+    cA: 'dfb4db8d48ae5a675963ea5e6c19d98d4ea028d8e898dad96ea19a80ade95dca',
+    cB: 'd0f0609d1613138d354f7e95f19fb556bf52d751947241e8c7118df5ef0ae175',
+  },
+]
+function modPow(a, e, m) { let r = 1n; for (a = mod(a, m); e > 0n; e >>= 1n) { if (e & 1n) r = (r * a) % m; a = (a * a) % m } return r }
+function gvDecompress(hex) {
+  const b = Buffer.from(hex, 'hex'), x = big(b.subarray(1)), rhs = mod(x * x * x - 3n * x + B, P)
+  let y = modPow(rhs, (P + 1n) / 4n, P)
+  if (b.length !== 33 || mod(y * y, P) !== rhs) throw new Error(`not a compressed P-256 point: ${hex}`)
+  if (Number(y & 1n) !== (b[0] & 1)) y = P - y
+  return [x, y]
+}
+const GV_M = gvDecompress(SPAKE2_M_HEX), GV_N = gvDecompress(SPAKE2_N_HEX)
+const gvEnc = (pt) => Buffer.concat([Buffer.from([4]), bytes32(pt[0]), bytes32(pt[1])])
+/** A received point (E2EE.md §6.2): 65 bytes, 0x04, x < p, y < p, on the curve; null otherwise. */
+function gvDec(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length !== 65 || buf[0] !== 4) return null
+  const x = big(buf.subarray(1, 33)), y = big(buf.subarray(33))
+  return x < P && y < P && mod(y * y, P) === mod(x * x * x - 3n * x + B, P) ? [x, y] : null
+}
+const gvShare = (role, w, s) => gvEnc(padd(pmul(s, [GX, GY]), pmul(w, role === 'A' ? GV_M : GV_N)))
+/** K = s·(peer − w·N) for A, s·(peer − w·M) for B; null when the peer's point is invalid or K is the point at infinity. */
+function gvK(role, w, s, peer) {
+  const q = gvDec(peer)
+  if (!q) return null
+  const wX = pmul(w, role === 'A' ? GV_N : GV_M)
+  const k = pmul(s, padd(q, wX && [wX[0], mod(-wX[1], P)]))
+  return k ? gvEnc(k) : null
+}
+const le64 = (n) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b }
+const gvTT = (idA, idB, pA, pB, K, w) => Buffer.concat([idA, idB, pA, pB, K, bytes32(w)].flatMap((x) => [le64(x.length), x]))
+function gvKeys(TT, aad) {
+  const h = sha256(TT), kc = hkdf256(h.subarray(16), Buffer.alloc(0), Buffer.concat([utf8('ConfirmationKeys'), aad]), 32)
+  return { Ke: h.subarray(0, 16), Ka: h.subarray(16), KcA: kc.subarray(0, 16), KcB: kc.subarray(16) }
+}
+const gvL16 = (s) => { const b = utf8(s), l = Buffer.alloc(2); l.writeUInt16BE(b.length); return Buffer.concat([l, b]) }
+const gvBase = (c) => Buffer.concat([utf8(PAIR_LABEL), gvL16(c.acct), gvL16(c.pendingId), Buffer.from([c.attempt]), unb64u(c.genesis, 32)])
+/** ctxW: what B knows when it offers (no approver keys yet); ctx: the full context, AAD of the confirmation keys. */
+const gvCtxW = (c) => Buffer.concat([gvBase(c), unb64u(c.sigB, 65), unb64u(c.kxB, 65)])
+const gvCtx = (c) => Buffer.concat([gvBase(c), unb64u(c.sigA, 65), unb64u(c.kxA, 65), unb64u(c.sigB, 65), unb64u(c.kxB, 65)])
+const gvW = (code, ctxW) => mod(big(hkdf256(utf8(code), Buffer.alloc(32), Buffer.concat([utf8('pocket-pair-w'), ctxW]), 48)), N)
+const gvId = (acct, sig, kx) => utf8(`${acct}/${didOf(unb64u(sig, 65), unb64u(kx, 65))}`)
+/** One side of a run. c = that side's view of the context (b64u keys and genesis), s = its scalar, peer = the other share. */
+function gvSide(role, code, c, s, peer) {
+  const w = gvW(code, gvCtxW(c)), mine = gvShare(role, w, s), K = gvK(role, w, s, peer)
+  if (!K) return { w, mine, K: null, error: 'bad-point' }
+  const pA = role === 'A' ? mine : peer, pB = role === 'A' ? peer : mine
+  const TT = gvTT(gvId(c.acct, c.sigA, c.kxA), gvId(c.acct, c.sigB, c.kxB), pA, pB, K, w)
+  const ks = gvKeys(TT, gvCtx(c))
+  return { w, mine, K, TT, ...ks, cA: hmac256(ks.KcA, TT), cB: hmac256(ks.KcB, TT) }
+}
+const hex = (b) => Buffer.from(b).toString('hex')
+const hexBig = (v) => v.toString(16).padStart(64, '0')
+
+// ============================================================================================================
 // 10. vector generation
 // ============================================================================================================
 const T0 = Date.UTC(2026, 9, 8)                                        // 2026-10-08T00:00:00Z
@@ -745,6 +911,86 @@ function build() {
     const idx = sasIndices(unb64u(at(1).genesis, 32), d.sigPub, d.kxPub)
     return { device: d.handle, genesis: at(1).genesis, sig: d.sig, kx: d.kx, indices: idx, english: idx.map((i) => wl.english.words[i]), chineseSimplified: idx.map((i) => wl.chineseSimplified.words[i]) }
   })
+
+  // ---- device pairing: SPAKE2 (RFC 9382) and Pocket's pairing code (E2EE.md §6) ------------------------------------
+  const rfc9382 = RFC9382_P256.map((t) => {
+    const w = BigInt('0x' + t.w), x = BigInt('0x' + t.x), y = BigInt('0x' + t.y)
+    const pA = gvShare('A', w, x), pB = gvShare('B', w, y), K = gvK('A', w, x, pB)
+    const TT = gvTT(utf8(t.A), utf8(t.B), pA, pB, K, w), ks = gvKeys(TT, Buffer.alloc(0))
+    const got = { pA, pB, K, TT, hashTT: sha256(TT), Ke: ks.Ke, Ka: ks.Ka, KcA: ks.KcA, KcB: ks.KcB, cA: hmac256(ks.KcA, TT), cB: hmac256(ks.KcB, TT) }
+    if (!gvK('B', w, y, pA).equals(K)) throw new Error(`RFC 9382 vector A='${t.A}' B='${t.B}': K differs between A and B`)
+    for (const [k, b] of Object.entries(got)) if (hex(b) !== t[k]) throw new Error(`RFC 9382 vector A='${t.A}' B='${t.B}': ${k} does not reproduce`)
+    return { A: t.A, B: t.B, wHex: t.w, xHex: t.x, yHex: t.y, pAHex: t.pA, pBHex: t.pB, KHex: t.K, TTHex: t.TT, hashTTHex: t.hashTT,
+      KeHex: t.Ke, KaHex: t.Ka, KcAHex: t.KcA, KcBHex: t.KcB, cAHex: t.cA, cBHex: t.cB }
+  })
+  const pairCtxOf = (o) => ({ acct: ACCT, pendingId: o.pendingId, attempt: o.attempt, genesis: o.genesis ?? at(1).genesis,
+    sigA: o.A.sig, kxA: o.A.kx, sigB: o.B.sig, kxB: o.B.kx })
+  const PAIR_CASES = [
+    { name: 'a phone approves a computer', code: '482913', A: phoneA, B: computerC, pendingId: 'pd_Hq2xV9kLmN4pR8sT', attempt: 1 },
+    { name: 'a computer approves a phone; the code starts with zeros', code: '003517', A: computerC, B: phoneB, pendingId: 'pd_Qw3eR5tY7uI9oP1a', attempt: 2 },
+    { name: 'the fifth and last attempt', code: '999999', A: phoneA, B: computerD, pendingId: 'pd_Zx8cV6bN4mL2kJ0h', attempt: 5 },
+  ]
+  const pairScalars = (i) => ({ x: big(testScalar(`pair/${i}/x`)), y: big(testScalar(`pair/${i}/y`)) })
+  const pairValid = PAIR_CASES.map((o, i) => {
+    const c = pairCtxOf(o), { x, y } = pairScalars(i + 1), w = gvW(o.code, gvCtxW(c))
+    const pA = gvShare('A', w, x), pB = gvShare('B', w, y), a = gvSide('A', o.code, c, x, pB), b = gvSide('B', o.code, c, y, pA)
+    for (const k of ['K', 'TT', 'Ke', 'Ka', 'KcA', 'KcB', 'cA', 'cB']) if (!a[k].equals(b[k])) throw new Error(`pair vector ${o.name}: ${k} differs between the two sides`)
+    return { name: o.name, approver: o.A.handle, newDevice: o.B.handle, code: o.code, display: `${o.code.slice(0, 3)} ${o.code.slice(3)}`, ...c,
+      didA: o.A.id, didB: o.B.id, idA: `${ACCT}/${o.A.id}`, idB: `${ACCT}/${o.B.id}`, xHex: hexBig(x), yHex: hexBig(y),
+      ctxWHex: hex(gvCtxW(c)), ctxHex: hex(gvCtx(c)), wHex: hexBig(w), pAHex: hex(pA), pBHex: hex(pB), KHex: hex(a.K), TTHex: hex(a.TT),
+      KeHex: hex(a.Ke), KaHex: hex(a.Ka), KcAHex: hex(a.KcA), KcBHex: hex(a.KcB), cAHex: hex(a.cA), cBHex: hex(a.cB) }
+  })
+  const pairInvalid = []
+  {
+    const o = PAIR_CASES[0], c = pairCtxOf(o), { x, y } = pairScalars(1)
+    const side = (inputs, s, key) => ({ code: inputs.code, ...inputs.ctx, [key]: hexBig(s) })
+    const mismatch = (name, { codeA = o.code, codeB = o.code, ctxA = c, ctxB = c, tamperCB = false }) => {
+      const pB = gvShare('B', gvW(codeB, gvCtxW(ctxB)), y), pA = gvShare('A', gvW(codeA, gvCtxW(ctxA)), x)
+      const a = gvSide('A', codeA, ctxA, x, pB), b = gvSide('B', codeB, ctxB, y, pA)
+      const rec = { name, error: 'bad-confirm', detectedBy: tamperCB ? 'approver' : 'newDevice',
+        newDevice: side({ code: codeB, ctx: ctxB }, y, 'yHex'), approver: side({ code: codeA, ctx: ctxA }, x, 'xHex'), pBHex: hex(pB), pAHex: hex(pA), cAHex: hex(a.cA) }
+      if (tamperCB) {
+        if (!b.cA.equals(a.cA)) throw new Error(`pair vector ${name}: expected the new device to accept`)
+        rec.cBHex = hex(flip(b.cB, 31))
+        if (a.cB.equals(flip(b.cB, 31))) throw new Error(`pair vector ${name}`)
+      } else if (b.cA.equals(a.cA)) throw new Error(`pair vector ${name}: expected a confirmation failure`)
+      pairInvalid.push(rec)
+    }
+    mismatch('the approver typed a wrong code (two digits swapped)', { codeA: '482931' })
+    mismatch('the new device was shown another lock (another genesis)', { ctxB: { ...c, genesis: b64u(sha256(unb64u(reset.p))) } })
+    mismatch('the new device was told another admin device answered', { ctxB: { ...c, sigA: computerD.sig, kxA: computerD.kx } })
+    mismatch("the approver was shown someone else's keys for the new device", { ctxA: { ...c, sigB: evil.sig, kxB: evil.kx } })
+    mismatch('the two devices use different pending entries', { ctxA: { ...c, pendingId: 'pd_AnotherEntry0001' } })
+    mismatch('the two devices count the attempt differently', { ctxA: { ...c, attempt: 2 } })
+    mismatch("the new device's confirmation was modified on the way", { tamperCB: true })
+    const w = gvW(o.code, gvCtxW(c)), wN = gvEnc(pmul(w, GV_N)), wM = gvEnc(pmul(w, GV_M))
+    if (gvSide('A', o.code, c, x, wN).error !== 'bad-point' || gvSide('B', o.code, c, y, wM).error !== 'bad-point') throw new Error('pair vector: K at infinity')
+    pairInvalid.push({ name: "pB = w·N: the approver's K would be the point at infinity", error: 'bad-point', detectedBy: 'approver',
+      approver: side({ code: o.code, ctx: c }, x, 'xHex'), pBHex: hex(wN) })
+    pairInvalid.push({ name: "pA = w·M: the new device's K would be the point at infinity", error: 'bad-point', detectedBy: 'newDevice',
+      newDevice: side({ code: o.code, ctx: c }, y, 'yHex'), pAHex: hex(wM), cAHex: hex(Buffer.alloc(32)) })
+  }
+  const vp = Buffer.from(pairValid[0].pBHex, 'hex')
+  const invalidPoints = [
+    ['the point at infinity (SEC1: a single zero byte)', Buffer.from([0])],
+    ['64 bytes (the last one missing)', vp.subarray(0, 64)],
+    ['66 bytes (one extra)', Buffer.concat([vp, Buffer.from([0])])],
+    ['compressed encoding of a valid point', Buffer.concat([Buffer.from([2 | (vp[64] & 1)]), vp.subarray(1, 33)])],
+    ['hybrid encoding (prefix 0x06 / 0x07) of a valid point', Buffer.concat([Buffer.from([6 | (vp[64] & 1)]), vp.subarray(1)])],
+    ['not on the curve (last bit of y flipped)', flip(vp, 64)],
+    ['x = p', Buffer.concat([Buffer.from([4]), bytes32(P), vp.subarray(33)])],
+    ['y = p', Buffer.concat([vp.subarray(0, 33), bytes32(P)])],
+    ['x = y = 0', Buffer.concat([Buffer.from([4]), Buffer.alloc(64)])],
+  ].map(([name, b]) => { if (gvDec(b)) throw new Error(`invalid point vector ${name} decodes`); return { name, hex: hex(b), error: 'bad-point' } })
+  const inScript = (zero, s) => [...s].map((ch) => (/[0-9]/.test(ch) ? String.fromCodePoint(zero + Number(ch)) : ch)).join('')
+  const pairCodes = {
+    format: ['482913', '003517', '000000', '999999'].map((code) => ({ code, display: `${code.slice(0, 3)} ${code.slice(3)}` })),
+    parse: [
+      ['482913', '482913'], ['482 913', '482913'], [' 482-913 ', '482913'], ['482–913', '482913'], ['482　913', '482913'],
+      [inScript(0xff10, '482913'), '482913'], [inScript(0x0660, '482913'), '482913'], [inScript(0x06f0, '482 913'), '482913'],
+      [inScript(0x0966, '482913'), '482913'], ['48291', null], ['4829134', null], ['48291a', null], ['482_913', null], ['482.913', null], ['', null],
+    ].map(([input, code]) => ({ input, code })),
+  }
 
   // ---- seals ----------------------------------------------------------------------------------------------
   const sealCases = ['env', 'obj'].map((label, i) => {
@@ -968,6 +1214,8 @@ function build() {
       encoding: 'All byte strings are base64url without padding unless the field name says hex. *Text fields are the same bytes shown as UTF-8 for reading; the base64url field is normative.',
       signatures: 'ECDSA signatures here are deterministic (RFC 6979) so this file is reproducible. Implementations may sign with randomized ECDSA; they must verify these.',
       contexts: '`prefix` = how many statements of lock.chain to apply to get the lock state; device names refer to `devices`.',
+      pairing: '`spake2` (RFC 9382 Appendix B, reproduced) and `pair` (E2EE.md §6): scalars, points and derived bytes are lowercase hex in fields ending in Hex (as the RFC writes them); genesis, sigA/kxA/sigB/kxB are base64url as in lock statements; codes, ids and names are text. pake.mjs is the reference implementation and must reproduce every value (pake.test.mjs; `--check` runs it too).',
+      legacy: '`sas` and `wordlists`: the six verification words of the first E2EE release, replaced by the pairing code on 2026-10-09 (E2EE.md §6). No longer part of the protocol; kept only until every implementation has dropped its words code, then deleted.',
       testOnly: 'All private keys below are public test material.',
       now: T0,
       account: ACCT,
@@ -1005,6 +1253,20 @@ function build() {
     realmKeys: { computerC: { 1: b64u(KC1), 2: b64u(KC2) }, computerD: { 1: b64u(KD1) } },
     kid: [KC1, KC2, KD1].map((k) => ({ key: b64u(k), kid: kidOf(k) })),
     names: { realm: 'computerC', epoch1Key: b64u(KC1), namesKey: b64u(names), sessions: sessions.map(([id, xv]) => ({ sessionId: id, xv, sk: sessionKeyOf(names, id, xv) })) },
+    spake2: {
+      suite: 'SPAKE2-P256-SHA256-HKDF-HMAC (RFC 9382); A uses M, B uses N; K, pA, pB uncompressed SEC1',
+      M: SPAKE2_M_HEX, N: SPAKE2_N_HEX, MUncompressedHex: hex(gvEnc(GV_M)), NUncompressedHex: hex(gvEnc(GV_N)),
+      rfc9382,
+      invalidPoints,
+    },
+    pair: {
+      label: PAIR_LABEL,
+      maxAttempts: 5,
+      note: 'valid: one complete run per case (both sides agree on K, TT, Ke and the confirmations). invalid: what each side was given and which side must detect the failure (`detectedBy`: newDevice = finishB returns the error, approver = answerA throws it or confirmB returns it); in the bad-confirm cases with detectedBy newDevice, cAHex is what the approver sent and differs from what the new device expects.',
+      codes: pairCodes,
+      valid: pairValid,
+      invalid: pairInvalid,
+    },
     sas,
     seal: sealCases,
     lock: {
@@ -1085,24 +1347,113 @@ function check(v) {
   for (const x of ea.invalid) ok(errorOf(() => verifyEnrollAuth(x.message, { ...ea.valid.context, ...x.context })) === x.error, `enroll auth: ${x.name}`)
   for (const [label, x, when] of [['netmap', v.coord.netmap, v.coord.netmap.payload.at], ['revocations', v.coord.revocations, v.coord.revocations.payload.at], ['purge', v.coord.purge, v.coord.purge.payload.at]]) ok(verifyCoordDoc(label, x.doc, keys, when).t === label, label)
   ok(errorOf(() => verifyCoordDoc('purge', v.coord.netmap.doc, keys, v.about.now)) === 'bad-format', 'label confusion')
+  // device pairing: re-derive every stored value with this file's own SPAKE2 (section 9b)
+  const H = (s) => Buffer.from(s, 'hex'), BN = (s) => BigInt('0x' + s)
+  const sp = v.spake2
+  ok(hex(gvEnc(gvDecompress(sp.M))) === sp.MUncompressedHex && hex(gvEnc(gvDecompress(sp.N))) === sp.NUncompressedHex && sp.M === SPAKE2_M_HEX && sp.N === SPAKE2_N_HEX, 'SPAKE2 M and N')
+  for (const t of sp.rfc9382) {
+    const w = BN(t.wHex), x = BN(t.xHex), y = BN(t.yHex), pA = gvShare('A', w, x), pB = gvShare('B', w, y), K = gvK('A', w, x, pB)
+    const TT = gvTT(utf8(t.A), utf8(t.B), pA, pB, K, w), ks = gvKeys(TT, Buffer.alloc(0))
+    ok(hex(pA) === t.pAHex && hex(pB) === t.pBHex && hex(K) === t.KHex && hex(gvK('B', w, y, pA)) === t.KHex && hex(TT) === t.TTHex &&
+      hex(sha256(TT)) === t.hashTTHex && hex(ks.Ke) === t.KeHex && hex(ks.Ka) === t.KaHex && hex(ks.KcA) === t.KcAHex && hex(ks.KcB) === t.KcBHex &&
+      hex(hmac256(ks.KcA, TT)) === t.cAHex && hex(hmac256(ks.KcB, TT)) === t.cBHex, `RFC 9382 A='${t.A}' B='${t.B}'`)
+  }
+  for (const p of sp.invalidPoints) ok(gvDec(H(p.hex)) === null && p.error === 'bad-point', `invalid point: ${p.name}`)
+  const pctx = (c) => ({ acct: c.acct, pendingId: c.pendingId, attempt: c.attempt, genesis: c.genesis, sigA: c.sigA, kxA: c.kxA, sigB: c.sigB, kxB: c.kxB })
+  for (const c of v.pair.valid) {
+    const k = pctx(c), x = BN(c.xHex), y = BN(c.yHex), a = gvSide('A', c.code, k, x, H(c.pBHex)), b = gvSide('B', c.code, k, y, H(c.pAHex))
+    ok(hex(gvCtxW(k)) === c.ctxWHex && hex(gvCtx(k)) === c.ctxHex && hexBig(a.w) === c.wHex && hex(a.mine) === c.pAHex && hex(b.mine) === c.pBHex &&
+      didOf(unb64u(c.sigA), unb64u(c.kxA)) === c.didA && didOf(unb64u(c.sigB), unb64u(c.kxB)) === c.didB && c.idA === `${c.acct}/${c.didA}` && c.idB === `${c.acct}/${c.didB}` &&
+      [a, b].every((s) => hex(s.K) === c.KHex && hex(s.TT) === c.TTHex && hex(s.Ke) === c.KeHex && hex(s.Ka) === c.KaHex && hex(s.KcA) === c.KcAHex &&
+        hex(s.KcB) === c.KcBHex && hex(s.cA) === c.cAHex && hex(s.cB) === c.cBHex) && c.display === `${c.code.slice(0, 3)} ${c.code.slice(3)}`, `pair: ${c.name}`)
+  }
+  for (const c of v.pair.invalid) {
+    const nd = c.newDevice, ap = c.approver
+    let verdict
+    if (c.error === 'bad-confirm') {
+      const pB = gvShare('B', gvW(nd.code, gvCtxW(pctx(nd))), BN(nd.yHex)), pA = gvShare('A', gvW(ap.code, gvCtxW(pctx(ap))), BN(ap.xHex))
+      const a = gvSide('A', ap.code, pctx(ap), BN(ap.xHex), pB), b = gvSide('B', nd.code, pctx(nd), BN(nd.yHex), pA)
+      ok(hex(pB) === c.pBHex && hex(pA) === c.pAHex && hex(a.cA) === c.cAHex, `pair: ${c.name} (messages)`)
+      verdict = c.detectedBy === 'newDevice' ? (b.cA.equals(a.cA) ? null : 'bad-confirm') : (b.cA.equals(a.cA) && !a.cB.equals(H(c.cBHex)) ? 'bad-confirm' : null)
+    } else if (c.detectedBy === 'approver') verdict = gvSide('A', ap.code, pctx(ap), BN(ap.xHex), H(c.pBHex)).error ?? null
+    else verdict = gvSide('B', nd.code, pctx(nd), BN(nd.yHex), H(c.pAHex)).error ?? null
+    ok(verdict === c.error, `pair: ${c.name}`)
+  }
+  for (const c of v.pair.codes.format) ok(c.display === `${c.code.slice(0, 3)} ${c.code.slice(3)}` && /^[0-9]{6}$/.test(c.code), `code format ${c.code}`)
+  return n
+}
+
+// ============================================================================================================
+// 11b. pake.mjs against the vectors (the implementation products copy must reproduce every value)
+// ============================================================================================================
+function crossCheckPake(v, K) {
+  let n = 0
+  const ok = (cond, what) => { if (!cond) throw new Error(`pake.mjs disagrees with vectors.json: ${what}`); n++ }
+  const H = (s) => Buffer.from(s, 'hex'), BN = (s) => BigInt('0x' + s)
+  const code = (fn) => { try { fn(); return null } catch (e) { if (e instanceof K.PairError) return e.code; throw e } }
+  const sp = v.spake2
+  ok(K.SPAKE2_M === sp.M && K.SPAKE2_N === sp.N && hex(K.encodePoint(K.p256.M)) === sp.MUncompressedHex && hex(K.encodePoint(K.p256.N)) === sp.NUncompressedHex, 'M and N')
+  for (const t of sp.rfc9382) {
+    const w = BN(t.wHex), x = BN(t.xHex), y = BN(t.yHex), pA = K.spake2Public('A', w, x), pB = K.spake2Public('B', w, y)
+    const KA = K.spake2SharedK('A', w, x, pB), TT = K.spake2Transcript(utf8(t.A), utf8(t.B), pA, pB, KA, w), ks = K.spake2KeySchedule(TT, Buffer.alloc(0))
+    ok(hex(pA) === t.pAHex && hex(pB) === t.pBHex && hex(KA) === t.KHex && hex(K.spake2SharedK('B', w, y, pA)) === t.KHex && hex(TT) === t.TTHex &&
+      hex(ks.Ke) === t.KeHex && hex(ks.Ka) === t.KaHex && hex(ks.KcA) === t.KcAHex && hex(ks.KcB) === t.KcBHex &&
+      hex(K.spake2Mac(ks.KcA, TT)) === t.cAHex && hex(K.spake2Mac(ks.KcB, TT)) === t.cBHex, `RFC 9382 A='${t.A}' B='${t.B}'`)
+  }
+  for (const p of sp.invalidPoints) ok(code(() => K.decodePoint(H(p.hex))) === p.error, `invalid point: ${p.name}`)
+  for (const c of v.pair.codes.format) ok(K.formatPairCode(c.code) === c.display, `formatPairCode ${c.code}`)
+  for (const c of v.pair.codes.parse) ok(K.parsePairCode(c.input) === c.code, `parsePairCode ${JSON.stringify(c.input)}`)
+  const pctx = (c) => ({ acct: c.acct, pendingId: c.pendingId, attempt: c.attempt, genesis: c.genesis, sigA: c.sigA, kxA: c.kxA, sigB: c.sigB, kxB: c.kxB })
+  for (const c of v.pair.valid) {
+    const k = pctx(c)
+    ok(hex(K.pairCtxW(k)) === c.ctxWHex && hex(K.pairCtx(k)) === c.ctxHex && hexBig(K.pairW(c.code, K.pairCtxW(k))) === c.wHex &&
+      K.didOf(c.sigA, c.kxA) === c.didA && K.didOf(c.sigB, c.kxB) === c.didB, `pair context: ${c.name}`)
+    const b = K.startB(c.code, k, { testScalar: BN(c.yHex) })
+    const a = K.answerA(c.code, k, b.pB, { testScalar: BN(c.xHex) })
+    const r = K.finishB(b.state, { sigA: c.sigA, kxA: c.kxA }, a.pA, a.cA)
+    const f = a.confirmB(r.cB)
+    ok(hex(b.pB) === c.pBHex && hex(a.pA) === c.pAHex && hex(a.cA) === c.cAHex && r.ok && hex(r.cB) === c.cBHex && hex(r.Ke) === c.KeHex && f.ok && hex(f.Ke) === c.KeHex, `pair run: ${c.name}`)
+  }
+  for (const c of v.pair.invalid) {
+    const nd = c.newDevice, ap = c.approver
+    let got
+    if (c.error === 'bad-confirm') {
+      const b = K.startB(nd.code, pctx(nd), { testScalar: BN(nd.yHex) })
+      const a = K.answerA(ap.code, pctx(ap), b.pB, { testScalar: BN(ap.xHex) })
+      ok(hex(b.pB) === c.pBHex && hex(a.pA) === c.pAHex && hex(a.cA) === c.cAHex, `pair: ${c.name} (messages)`)
+      const r = K.finishB(b.state, { sigA: nd.sigA, kxA: nd.kxA }, a.pA, a.cA)
+      got = c.detectedBy === 'newDevice' ? (r.ok ? null : r.code) : (r.ok ? (a.confirmB(H(c.cBHex)).code ?? null) : 'unexpected')
+    } else if (c.detectedBy === 'approver') got = code(() => K.answerA(ap.code, pctx(ap), H(c.pBHex), { testScalar: BN(ap.xHex) }))
+    else {
+      const r = K.finishB(K.startB(nd.code, pctx(nd), { testScalar: BN(nd.yHex) }).state, { sigA: nd.sigA, kxA: nd.kxA }, H(c.pAHex), H(c.cAHex))
+      got = r.ok ? null : r.code
+    }
+    ok(got === c.error, `pair: ${c.name}`)
+  }
   return n
 }
 
 // ============================================================================================================
 // main
 // ============================================================================================================
-function main() {
+async function main() {
   SIGNER = ecdsaSignDeterministic
   const text = JSON.stringify(build(), null, 2) + '\n'
+  // pake.mjs (the pairing implementation products copy) is checked against the vectors whenever it sits next to this
+  // file; a copy of the protocol folder without it still generates and checks everything else.
+  const pakeFile = path.join(HERE, 'pake.mjs')
+  const pake = fs.existsSync(pakeFile) ? await import(pathToFileURL(pakeFile).href) : null
+  const pakeNote = (v) => (pake ? `; pake.mjs reproduces the pairing vectors (${crossCheckPake(v, pake)} checks)` : '; pake.mjs not found next to this file, its cross-check skipped')
   if (process.argv.includes('--check')) {
     const stored = fs.readFileSync(VECTORS_FILE, 'utf8')
     if (stored !== text) { console.error('vectors.json differs from what this generator produces now (run without --check to rewrite it)'); process.exit(1) }
     SIGNER = ecdsaSign                       // from here on nothing is signed; verification uses Node's ECDSA
     const n = check(JSON.parse(stored))
-    console.log(`vectors.json OK: byte-identical rebuild, ${n} independent checks passed`)
+    console.log(`vectors.json OK: byte-identical rebuild, ${n} independent checks passed${pakeNote(JSON.parse(stored))}`)
   } else {
+    const note = pakeNote(JSON.parse(text))  // refuse to write vectors that pake.mjs does not reproduce
     fs.writeFileSync(VECTORS_FILE, text)
-    console.log(`wrote ${path.relative(process.cwd(), VECTORS_FILE)} (${text.length} bytes)`)
+    console.log(`wrote ${path.relative(process.cwd(), VECTORS_FILE)} (${text.length} bytes)${note}`)
   }
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main().catch((e) => { console.error(e); process.exit(1) })

@@ -1,14 +1,16 @@
 # Pocket end-to-end encryption — protocol v1
 
-Status: implementation spec, phase 1 (2026-10-08). The key words MUST, SHOULD and MAY are used as in RFC 2119.
+Status: implementation spec, phase 1 (2026-10-08); §6 pairing code replaces the six verification words (2026-10-09).
+The key words MUST, SHOULD and MAY are used as in RFC 2119.
 Companion documents: [RELAY.md](RELAY.md) (open-source relay), [COORD.md](COORD.md) (coordination server API),
 [ASR.md](ASR.md) (speech recognition), [MAPPING.md](MAPPING.md) (old endpoints → new), [BUILD-PLAN.md](BUILD-PLAN.md).
 Reference implementation and test vectors: [gen-vectors.mjs](gen-vectors.mjs), [vectors.json](vectors.json)
-(`node docs/protocol/gen-vectors.mjs --check`).
+(`node docs/protocol/gen-vectors.mjs --check`); device pairing (§6): [pake.mjs](pake.mjs)
+(`node --test docs/protocol/pake.test.mjs`).
 
 > **中文摘要**　每台设备自己生成两把 P-256 钥匙(签名 + 密钥交换),私钥不出设备。账号里「哪些设备可信」记在一条
-> 只能追加、每条都由已有可信设备签名的「设备锁日志」里:协调服务器只存、只转,伪造不了(§5)。新设备加入时两边各显示
-> 6 个核对词,用户核对后在已有设备上批准(§6)。内容按**电脑**分「领域」:每台电脑自己生成内容钥匙(分代,撤销设备时换代),
+> 只能追加、每条都由已有可信设备签名的「设备锁日志」里:协调服务器只存、只转,伪造不了(§5)。新设备加入时显示一个
+> 6 位数配对码,用户在已有的管理设备上输入,两边跑 SPAKE2:服务器拿不到码、没法离线猜,在线猜一次只有百万分之一(§6)。内容按**电脑**分「领域」:每台电脑自己生成内容钥匙(分代,撤销设备时换代),
 > 用对方的公钥包好发给允许看它的手机(§8)。手机和电脑之间的命令、事件是签名 + 加密的信封(§9);会话记录、附件是
 > 电脑签名加密后存到中继的对象和分块密文(§10、§11)。中继只凭协调服务器签发的短期票据放行,并要求设备当场用私钥证明身份(§12、§13)。
 > 算法:ECDSA P-256 / ECDH P-256 / HKDF-SHA256 / AES-256-GCM,JSON + base64url。
@@ -48,7 +50,7 @@ Non-goals (v1)
 | ASR gateway | Pocket (official), the user, or nobody | audio for the length of one request (cloud modes only) | hear audio in cloud modes | — (see ASR.md) |
 
 Assumptions: TLS (WebPKI) protects transport; device OS key storage protects private keys against other OS users and
-offline disk access; the user compares verification words when approving a device (§6.4 covers when they cannot).
+offline disk access; the user types the pairing code shown on the new device into a device they already trust (§6).
 
 Residual risks the UI and privacy policy must state: metadata (§14); a malicious coordination server can hide lock
 statements from some devices (withholding / equivocation, §5.5) — detectable, not preventable; cloud voice modes
@@ -97,7 +99,9 @@ where `h` is a header or payload (bytes) and `c` the ciphertext (empty when noth
 Labels: `lock`, `env`, `obj`, `grant`, `ticket`, `netmap`, `revocations`, `purge`, `keys`, `relay-auth`, `asr-auth`,
 `enroll-auth`.
 A verifier MUST use the label of the structure it expects; a valid signature under one label never validates another
-(vector: `coord.labelConfusion`). KDF info strings, hash prefixes and HMAC messages also begin with `pocket/v1 `.
+(vector: `coord.labelConfusion`). KDF info strings, hash prefixes and HMAC messages also begin with `pocket/v1 ` —
+except in the pairing (§6.2), which keeps RFC 9382's `ConfirmationKeys` and uses `pocket-pair/1` and `pocket-pair-w`;
+none of these starts with `pocket/v1 `, so they cannot collide with the strings above.
 Vector: `encoding.sigInput`.
 
 ### 3.5 Signed documents and seals
@@ -182,7 +186,7 @@ The genesis hash `G = SHA-256(payload of statement 1)` identifies the lock. Payl
 | `op.type` | Fields | Who may sign | Effect |
 |---|---|---|---|
 | `genesis` | `device` (device entry, `admin: true`), `resetOf?` `{genesis, seq, h}` | the device itself; only as statement 1 | first trusted device; `resetOf` declares a reset of an earlier lock (§5.6) |
-| `add` | `device`, `sas` (boolean: the approver compared verification words) | an admin | trust a new device (§6) |
+| `add` | `device`, `sas` (boolean: `true` = the approver paired with the device; `false` only in logs from before 2026-10-09, §6.4) | an admin | trust a new device (§6) |
 | `revoke` | `device` (did), `reason?` (≤64 chars) | an admin, or the device itself | permanent; the id can never be added again |
 | `policy` | `acl` (full ACL document, §7), `admins?` `{did: bool}` | an admin | replaces the ACL; changes admin flags |
 | `realm` | `realm` (did of a computer), `epoch`, `kid`, `reason` ∈ `init`, `revoke`, `acl`, `rotate`, `reset` | **only that computer** | commits to the computer's next content-key epoch (§8) |
@@ -237,7 +241,7 @@ Existing devices that still hold the old lock and see a new genesis with `resetO
 - MUST NOT trust any device of the new lock automatically;
 - MUST stop sending content to devices they do not already trust;
 - show "the device lock of this account was reset — if this wasn't you, change your password" and only after the local
-  user confirms on that device, join the new lock as a new device (§6), which re-verifies with words.
+  user confirms on that device, join the new lock as a new device (§6), pairing with a code again.
 A computer that joins a reset lock creates realm epoch 1 again (`reason: reset`) and re-uploads its sessions from the
 original transcripts. Vector: `lock.reset`.
 
@@ -250,75 +254,217 @@ Two different things:
 - **Revocation** (lock, signed): permanent; triggers key rotation (§8.3). When the user logs out a phone, the App signs
   a self-revoke and deletes its keys; a later login is a new device.
 
-## 6. Adding a device and verification words
+## 6. Adding a device: the pairing code
+
+> 中文摘要　新设备 B 显示一个 6 位数**配对码**(「482 913」,所有语言都是数字),用户在已经在锁里的管理设备 A 上**输入**它;
+> 两边拿这个码当口令跑 SPAKE2(RFC 9382)。服务器只转发看不懂的四个值,猜码只能在线一次一猜(每次一百万分之一),
+> 每个待批准条目最多 5 次;B 核对过 A 的确认值才钉住锁,A 核对过 B 的确认值才签 `add`,新设备上不用再点任何东西。
+> 参考实现 [pake.mjs](pake.mjs),向量 `spake2` / `pair`。接口见 COORD §4.5 配对。
 
 ### 6.1 Flow
+`A` = the approver: a device that is live and admin in the lock it pinned, in front of the user. `B` = the new device.
+`G` = the 32-byte genesis hash (§5.1). Endpoints and pushes: COORD §4.5 (pairing).
+
 ```
-new device N                     coordination                       existing admin device A
+new device B                         coordination                             approver A (live admin)
 generate sig, kx
-login (password)  ───────────▶  enroll {name, platform, sig, kx, sasLang, proof (§13)}
-                                 reserve addr, keep pending
-           ◀─────────────────── {pendingId, did, addr, lock head, genesis G}
-fetch + validate lock from G
-show words(G, N.sig, N.kx)                     ──── push enroll_pending ────▶  fetch pending entry
-                                                                               validate the lock it knows (genesis G')
-                                                                               show words(G', N.sig, N.kx), N.name, N.platform
-                       user compares the two screens, taps "They match" on N (pins G) and Allow on A (either order)
-                                 ◀── statement add{device: N, sas: true} signed by A (CAS on head)
-                                 ── push lock ──▶ N, all devices
-N sees itself in the verified log of the pinned G, obtains tickets, receives grants (§8.4)
-```
-The genesis `G` (or any later lock) the new device downloads is only trusted because the words matched: the words commit
-to `G` and to N's keys, so a coordination server that shows N a fake lock, or shows A substituted keys, produces
-different words on the two screens. **Both** devices act on the comparison: A decides whether to sign the `add`, and N
-pins `G` only when its own user confirms the words (normative). Until N has pinned a genesis it MUST NOT act as a member
-of any lock it was shown — a computer creates no realm, grants nothing and connects to no relay; a phone sends no
-commands and approves nothing — even if that lock contains an `add` for N: a coordination server could otherwise show N
-a lock of its own making (genesis by a device it controls) and add N to it without any human involved (found in the
-phase-3 attack tests). N's confirmation carries the `G` its words were computed from; a confirmation for a `G` that is
-no longer the lock N follows is ignored, and "They don't match" raises an alarm. Exceptions: the device that creates a
-genesis (or a reset genesis, §5.6) pins its own `G`; a device whose keys changed keeps the `G` it had pinned (still the
-same person's lock); an unpinned device follows whichever lock coordination shows it (its words change with it).
+login (password) ──────────────────▶ enroll {name, platform, sig, kx, proof (§13)}
+           ◀──────────────────────── {pendingId, did, addr, lock head, genesis}  ── enroll_pending ──▶
+fetch + validate the lock from its genesis G
+code ← 6 random digits; show "482 913"
+pB ← startB(code, ctxW)   (§6.2)
+POST /v2/pair/offer {pendingId, attempt, pB} ──── pair_offer {pendingId, attempt, pB, name, platform, sig, kx} ──▶
+                                                                            the user types the code shown on B
+                                                                            pA, cA ← answerA(code, ctx, pB)
+           ◀──── pair_answer {pendingId, attempt, by: A's did, pA, cA} ──── POST /v2/pair/answer
+sigA, kxA ← A's entry in the lock B validated
+check cA → pins G
+POST /v2/pair/confirm {pendingId, attempt, cB} ──── pair_confirm {pendingId, attempt, cB} ──▶ check cB
+           ◀──────────────── push lock ◀──── statement add{device: B, sas: true} signed by A (CAS on head, §5.4)
+B sees itself in the verified log of its pinned G, obtains tickets, receives grants (§8.4)
 
-### 6.2 Verification words (SAS)
+cA wrong → B: POST /v2/pair/fail {pendingId, attempt}, shows a new code, offers attempt + 1 (at most 5 per entry)
 ```
-v   = SHA-256(UTF8("pocket/v1 sas") || 0x00 || G || sigPub || kxPub)        # G = 32-byte genesis hash
-idx = the first 66 bits of v as six 11-bit big-endian integers               # shifts 61, 50, 39, 28, 17, 6 of v[0:9]
-words = [list[i] for i in idx]
+
+The new device trusts the lock it downloaded only because the pairing succeeded: the code is shown on B alone, the user
+types it on A, and the key confirmation binds the code to `G`, to both devices' keys, to the account, the pending entry
+and the attempt (§6.2). A coordination server that shows B a fake lock, shows A substituted keys for B, or names another
+admin as the one that answered makes the two sides derive different keys, and the confirmation fails as it does for a
+mistyped code. **Both** devices act only on a verified confirmation (normative):
+- B **pins `G` only after `cA` verified** — this replaces the local "They match" of the first release and is the
+  phase-3 H1 requirement (a coordination server must not be able to show B a lock of its own making, with a genesis by a
+  device it controls and an `add` for B, and have B accept it without any human involved). Until B has pinned a genesis it
+  MUST NOT act as a member of any lock it was shown — a computer creates no realm, grants nothing and connects to no
+  relay; a phone sends no commands and approves nothing — even if that lock contains an `add` for B. B turns on when it
+  sees itself added in the log that descends from its pinned `G`; a lock with another genesis never turns it on.
+- A **signs the `add` only after `cB` verified**, and adds exactly the device whose keys were in the context (name,
+  platform and address from the pending entry). Nothing on B needs to be tapped: after the user typed the code on A, both
+  sides finish by themselves.
+
+Exceptions: the device that creates a genesis (or a reset genesis, §5.6) pins its own `G`; a device whose keys changed
+keeps the `G` it had pinned (still the same person's lock); a device that has not pinned a genesis pairs against whichever
+lock coordination shows it — the pairing succeeds only if that is the lock the approver holds.
+
+### 6.2 SPAKE2 with Pocket's context
+Ciphersuite **SPAKE2-P256-SHA256-HKDF-HMAC** of RFC 9382 (§3.3, §4, §6). Roles: A uses `M`, B uses `N`. `P` is the
+P-256 base point (RFC 9382 calls it P; this document uses `G` for the genesis hash), `n` the group order (cofactor 1).
+
 ```
-Lists: BIP-39 English (2048 words) and BIP-39 Simplified Chinese (2048 single characters), files and hashes in
-[wordlists/](wordlists/README.md). 66 bits against an attacker who must match them online while the user waits.
-Vectors: `sas` (indices and both renderings).
+code  = 6 ASCII digits, uniform over "000000"–"999999" (CSPRNG; a new code for every attempt)
+M     = 02886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12f      # RFC 9382 §6, SEC1 compressed
+N     = 03d8bbd6c639c62937b04d997f38c3770719c629d7014d49a24b4f98baa1292b49
+L16(s) = U16BE(len(UTF8(s))) || UTF8(s)                                    # acct and pendingId: 1–255 bytes
+base  = UTF8("pocket-pair/1") || L16(acct) || L16(pendingId) || U8(attempt) || G   # attempt 1–255; G as each side holds it
+ctxW  = base || sigB || kxB                     # what B knows when it offers
+ctx   = base || sigA || kxA || sigB || kxB      # the full context; sig, kx: 65-byte public keys (§3.3)
+w     = OS2IP(HKDF-SHA256(IKM = UTF8(code), salt = 32 zero bytes, info = UTF8("pocket-pair-w") || ctxW, L = 48)) mod n
+        # w = 0 is a failure: draw a new code (probability ≈ 2^−256)
+x, y  = uniform in [1, n − 1] (rejection sampling), fresh for every attempt, kept in memory only
+pA    = x·P + w·M                               # A
+pB    = y·P + w·N                               # B
+K     = x·(pB − w·N)    (A)    = y·(pA − w·M)    (B)          # the point at infinity is a failure (bad-point)
+idA   = UTF8(acct + "/" + didA),   idB = UTF8(acct + "/" + didB)  # did of each side's two keys (§3.7)
+TT    = len(idA) || idA || len(idB) || idB || len(pA) || pA || len(pB) || pB || len(K) || K || len(w) || w
+        # len = 8-byte little-endian length; pA, pB, K as 65-byte SEC1 uncompressed; w as 32 bytes big-endian
+Ke || Ka   = SHA-256(TT)                        # 16 + 16 bytes; Ke is not used
+KcA || KcB = HKDF-SHA256(IKM = Ka, salt = empty, info = UTF8("ConfirmationKeys") || ctx, L = 32)   # AAD = ctx
+cA    = HMAC-SHA256(KcA, TT),   cB = HMAC-SHA256(KcB, TT)                 # 32 bytes; compared in constant time
+```
+On the wire `pA`, `pB` are b64u of the 65 bytes and `cA`, `cB` b64u of the 32 bytes (COORD §4.5). Received points MUST be
+exactly 65 bytes with prefix `0x04`, `x < p`, `y < p` and on the curve (with cofactor 1 that also puts them in the group;
+the point at infinity has no 65-byte encoding); anything else fails the attempt (`bad-point`), as does `K` = infinity.
+Scalar multiplications MUST NOT branch or vary their number of operations on secret bits (the reference uses a fixed
+256-step Montgomery ladder over complete projective formulas).
 
-### 6.3 Display rules
-- Both screens show the same list: the language in the enrollment request (`sasLang`: `en` or `zh`), chosen by the
-  new device from its UI language. English: lowercase words separated by spaces. Chinese: six characters separated by
-  spaces (`运 睡 措 宗 煮 池`). Show index-free, large, in two rows of three.
-- Wording (zh / en; short, 2026-10-09): 「两台设备上的 6 个字一样吗?」 / "Do both screens show the same 6 words?",
-  buttons 「一样,允许」 / "Yes, allow" and 「不一样」 / "They don't match". Plus one line: 「不用记下这 6 个字。」 /
-  "You don't need to write these down." The approval screen also warns that if the user did not just sign in on a new
-  device, they should not allow it and should change their password (someone who knows the password can create a
-  pending device; only an approval lets it in).
-- A device's words stay valid for its lifetime: the device list shows them for every device (any device can recompute
-  `words(G, sig, kx)`), so a later comparison is always possible.
-- The new device shows the same question with 「一样」/「不一样」 ("They match" / "They don't match") next to its own words
-  (§6.1): computers in the tray menu (and once as a dialog when an approval arrived before the confirmation), phones on the
-  waiting screen. After an approval without comparing (§6.4) the new device still asks before it turns on.
+Relation to RFC 9382 — the construction is the RFC's; these are the choices the RFC leaves to protocols, and two
+departures from its sample flow:
+- **Who knows what when.** B's offer goes out before any admin has answered, and an account usually has several admin
+  devices (phones, and computers approved with `admin: true`), so B cannot know A's keys when it computes `pB`. `w`
+  therefore derives from `ctxW`; A's keys are bound by `idA` in the transcript and by `ctx` as the AAD of the
+  confirmation keys, both of which B computes when the answer arrives. (`ctx` is the context as first agreed; `ctxW` is
+  the same bytes without `sigA || kxA`.)
+- **Message order.** RFC 9382 §3.1 shows A's share first; here B's share travels first (the offer) and A's share travels
+  together with `cA`. The two shares do not depend on each other, so the order does not affect security; the roles
+  (A ↔ `M`, B ↔ `N`) are fixed and the confirmation order is the RFC's (`cA`, verified by B, before `cB`, verified by A).
+- **No memory-hard function.** RFC 9382 §3.2 says `w` SHOULD come from an MHF of the password. An MHF slows an *offline*
+  search by someone who holds `w` or a password verifier; here nothing holding either exists outside the two devices'
+  memory during one attempt: the code is fresh per attempt and never stored or sent, and SPAKE2 gives a man in the
+  middle one guess per run and no offline test (§6.7). HKDF-SHA256 keeps the derivation identical and cheap on every
+  platform. 48 output bytes (≥ 256 + 64 bits) keep the bias of `mod n` below 2^−128, as RFC 9382 §3.2 advises.
+- `x` and `y` come from [1, n − 1] instead of [0, n); `w` is bound to the pairing context instead of the bare password;
+  identities are `acct/did`. All three are protocol choices the RFC allows.
+- The labels `pocket-pair/1`, `pocket-pair-w` and the RFC's `ConfirmationKeys` do not start with `pocket/v1 ` (§3.4);
+  none of them can collide with a string that does.
 
-### 6.4 Approving without comparing
-`add.sas = false` records that the approver did **not** compare words (typical when approving a computer from a phone
-away from home). Such devices are shown with a warning badge until the user compares words later (local mark only,
-no statement). Decided (BUILD-PLAN.md §7.1): the approval screens offer this path as a secondary button with a
-prominent warning that this one approval cannot stop a misbehaving server, and the device list keeps a "not yet
-verified" mark until the user compares the words. Vector: statement 5 of `lock.chain`.
+Reference implementation: [pake.mjs](pake.mjs) (MIT; `startB`, `answerA`, `finishB`, `confirmB`, `pairCtx`, `pairCtxW`,
+`pairW`, `newPairCode`, `formatPairCode`, `parsePairCode`; tests `node --test docs/protocol/pake.test.mjs`). Vectors:
+`spake2.rfc9382` (the RFC's four, which every implementation MUST reproduce), `spake2.invalidPoints`, `pair.valid` (three
+complete runs with every intermediate value), `pair.invalid` (wrong code, another genesis, another admin, substituted
+keys, another pending entry or attempt, a modified `cB`, `K` at infinity on either side), `pair.codes`.
+
+### 6.3 Rules for the two sides (normative)
+New device B:
+1. After its enrollment is `pending` (COORD §4.1), B validates the lock coordination shows it from that lock's genesis.
+   Then it offers: attempt 1, or the next number after the last one coordination has seen (a restarted B lost `y` and
+   simply starts the next attempt).
+2. Every attempt has a new code and a new `y`. B shows the code and keeps code, `y` and `w` in memory only — never in a
+   file, a log or a request (the only exception is §6.6).
+3. On the answer for its current attempt, B takes `sigA`, `kxA` of the device named in `by` from **the lock it validated**
+   (never from the message); if `by` is not a live admin there, the attempt failed. Then it checks `cA`:
+   - correct → B pins `G` (the genesis of that lock, the one in `ctx`), sends `cB`, and waits for its `add` (§6.1);
+   - wrong, or `bad-point` → B reports the attempt as failed, forgets `y`, shows a new code and offers the next attempt.
+   B uses at most one answer per attempt and ignores answers for other attempts.
+4. B starts **at most 5 attempts** per pending entry and counts them itself (the count is not secret; persist it with
+   `pendingId`). When the fifth has failed, or a sixth would be needed, B stops and asks the user to sign in again
+   (coordination voids the entry too, but B MUST NOT rely on that). A "new code" action fails the current attempt and
+   starts the next one; it counts.
+
+Approver A:
+1. Only a device that is live and admin in its own pinned lock answers, and only for a pending device of its account.
+2. A builds `ctx` from its own account id, its own keys and pinned `G`, and from the pending entry: `pendingId`, the
+   attempt of the offer, and B's `sig`/`kx`, which MUST hash to the entry's `did` (§3.7).
+3. A uses a typed code for **one** attempt and answers each `(pendingId, attempt)` at most once: when the offer changes,
+   the user types the new code. If A cannot answer (`bad-point`: only an attacker or a broken peer produces it) it sends
+   nothing and tells the user the pairing failed and to get a new code on the new device.
+4. On B's confirmation A checks `cB`: correct → A appends `add {device: B's entry, sas: true}` (§5.4) with exactly the
+   keys that were in `ctx`; wrong → A does not sign and says the pairing failed. A keeps its side of an attempt in memory
+   only (after a restart the attempt is lost and the user gets a new code on B).
+5. There is no way to approve a device without pairing (the first release's "approve without comparing" is gone).
+
+Coordination (COORD §4.5) relays the four values without being able to use them, keeps the order (offer → answer →
+confirm or fail), voids a pending entry after its fifth attempt, rate-limits each call, and accepts an `add` only for a
+device that completed a pairing with the statement's signer — a second line of defence; the devices' own checks above
+are the first.
+
+### 6.4 The `sas` field of `add`
+`add` keeps its boolean `sas` so that devices running an earlier release keep validating new statements (§5.3 requires
+the field). Since 2026-10-09 every new `add` carries `sas: true` — "the approver paired with this device (§6.2)" —
+on every account, the demo account included; coordination refuses any other (`pair-required`). `sas: false` remains
+valid where it already is: logs written before that date by approvers who skipped comparing the six verification words of
+the first release (vector: statement 5 of `lock.chain`). Clients show no words any more and offer no comparison; they MAY
+mark such devices "added without verification" in the device list (removing them is the only action). The six words
+(SAS: BIP-39 indices of `SHA-256("pocket/v1 sas" || 0x00 || G || sigPub || kxPub)`), their word lists and `sasLang` are
+no longer part of the protocol; `vectors.json` keeps its `sas` and `wordlists` entries only until every implementation
+has removed that code.
 
 ### 6.5 Who creates the genesis
 - **Phones** create the genesis when they log in to an account that has no lock.
-- **Computers never create a genesis on their own.** A computer that upgrades before any phone stays on the old
-  protocol (MAPPING.md, dual run) and keeps its enrollment pending; the first phone that creates the genesis is prompted
-  to approve it. This avoids a computer-only lock that would force the user to approve their phone while sitting at
-  the computer.
-- Exceptions: the server-side demo computer (COORD.md §15) and a user-initiated reset from the tray (§5.6).
+- **Computers never create a genesis on their own.** A computer that signs in to an account without a lock stays
+  `waiting` (COORD §4.1), syncs nothing (MAPPING.md §1) and shows that a phone has to sign in first; it becomes `pending`
+  when the first phone creates the genesis, and then pairs with that phone. This avoids a computer-only lock that would
+  force the user to approve their phone while sitting at the computer.
+- Exceptions: the server-side demo computer (COORD §15) and a user-initiated reset from the tray (§5.6).
+
+### 6.6 The review (demo) account
+The demo account's only admin is the demo computer on the server (COORD §15): it has no screen and nobody can type into
+it. When enrollment answers `demo: true`, B adds the code it shows to its offers (`demoCode`) and the demo computer runs
+A with it; B's side is unchanged (it checks `cA`, pins `G`, sends `cB`), and the `add` carries `sas: true` like any other.
+On this one account the code passes through coordination by design, which is acceptable only because the account holds
+sample data. A client MUST send `demoCode` only when coordination says `demo: true` **and** the account the user signed
+in with is the review account built into the client: otherwise a malicious coordination
+server could answer `demo: true` for a real account, learn the code and run A itself — the very attack the pairing
+exists to stop.
+
+### 6.7 Why six digits are enough
+The attacker is coordination, or whoever controls it or the network beyond TLS. It wants B to pin a lock it controls,
+A to add a device it controls, or the code itself.
+- **No offline guessing.** A 6-digit code used as a hash input or MAC key could be searched by the server in well under a
+  second. SPAKE2 leaves nothing to search: testing a candidate code `c` against an observed or self-made run needs
+  `K_c = CDH(pA − w_c·M, pB − w_c·N)`, a gap Diffie–Hellman problem (RFC 9382 §7). The shares are uniformly distributed
+  whatever `w` is and the confirmations are keyed by `K`, so watching runs teaches nothing about the code either.
+- **One online guess per attempt.** Whoever plays A or B fixes its guess `w′` when it sends its share; the other side's
+  confirmation check tells it right (probability 10^−6, the code being uniform) or wrong, and the attempt is used up.
+- **Attempts are bounded by people, not by the server.** Playing A against B: B accepts at most 5 attempts per pending
+  entry by its own count, and a new entry needs the user to sign in again — at most 5 × 10^−6 per sign-in. Playing B
+  against A: every attempt needs the user to type a code on A, which answers each attempt once — one guess per typed code.
+- **Binding.** `ctxW` (in `w`) and `ctx` (in the confirmation keys), together with the identities in `TT`, fix the account,
+  the pending entry, the attempt, the genesis each side holds and both devices' keys. Any difference between the two
+  sides' views — a fake lock for B, substituted keys for A, another admin named as the answerer, another entry or attempt —
+  fails exactly like a wrong code (vectors `pair.invalid`), so it is caught with the same 10^−6 bound.
+- **The code never travels** (except §6.6). It is read by the user from B's screen and typed on A; coordination sees
+  `pA`, `pB`, `cA`, `cB`, attempt numbers and failures.
+- **Compared with the six words:** the words carried 66 bits but relied on the user really comparing them and on taps
+  that a misclick could give ("They match" by accident), and the approver could skip them. Typing the code makes the
+  comparison impossible to skip, and nothing remains to tap by mistake.
+- **Residual risks.** BigInt arithmetic is not constant-time at the machine level; the secrets live for one attempt in one
+  process, and only something running on the same device could time them (out of scope, §1). The server can always
+  deny service (drop messages, void entries). Someone who knows the password can create pending entries, but cannot
+  finish one without the code being typed on an admin device — hence the approver's warning (§6.8).
+
+### 6.8 What the user sees
+- **B** shows the code as two groups of three ASCII digits — `482 913` — in every UI language, and the line
+  「在已经登录的设备上输入这个配对码」 / "Enter this pairing code on a device that's already signed in", plus a
+  "new code" action (§6.3). It asks nothing else; it continues by itself once the pairing succeeded. Computers show it
+  in the tray (Mac menu bar, Windows notification area), phones on the waiting screen.
+- **A** shows the pending device (name, platform) with 「输入新设备上显示的配对码」 / "Enter the pairing code shown on
+  the new device", a six-digit field (numeric keyboard), and the warning 「如果你刚才没有在新设备上登录,不要输入,并修改密码。」 /
+  "If you didn't just sign in on a new device, don't enter anything, and change your password." The term is
+  「配对码」 / "pairing code" everywhere; nothing is compared by eye.
+- **Typed input** is normalised before use (`parsePairCode`, vectors `pair.codes.parse`): NFKC, then every Unicode decimal
+  digit (General Category Nd — full-width, Arabic-Indic, Persian, Devanagari, …) counts as its value, white space and
+  dashes are ignored, and anything else or a count other than six is refused without computing.
+- **A wrong code**: A says the code didn't match and asks for the new code now shown on the new device; after the fifth
+  failure B asks the user to sign in again.
 
 ## 7. Access control (ACL)
 
@@ -678,7 +824,7 @@ captured proof useless with any other login. Vectors: `coord.enrollAuth`.
 |---|---|---|---|
 | Messages, tool output, thinking, approval cards, plans, questions, commands, replies, titles, project paths, models, engines, usage figures, attachment names and contents, thumbnails, search queries and results | no | no (ciphertext) | no |
 | Account email, password hash, login times and IPs, device names, platforms, public keys, virtual addresses, lock statements, ACL, which relay is used | yes | see the next two rows | — |
-| Lock contents in detail: who approved whom and when, whether the words were compared (`sas`), admin flags, realm epochs, `kid`s and the reason of each rotation (`init`/`revoke`/`acl`/`rotate`/`reset`), revocation reasons (e.g. `logout`), lock resets; pending approvals (name, platform, kind); `sasLang` | yes | no | — |
+| Lock contents in detail: who approved whom and when, the `sas` flag (§6.4), admin flags, realm epochs, `kid`s and the reason of each rotation (`init`/`revoke`/`acl`/`rotate`/`reset`), revocation reasons (e.g. `logout`), lock resets; pending approvals (name, platform, kind) and their pairing progress: attempt numbers, failures and the SPAKE2 values `pA`, `pB`, `cA`, `cB`, which reveal nothing about the code (§6.7) — the code itself only on the demo account (§6.6) | yes | no | — |
 | Grant metadata (who wrapped which computer's keys for whom, when, which epochs and `kid`s, the ephemeral public key); the size of each grant | yes | no | — |
 | Client version (`hello.ver`), UI language, the account's list-days preference (`listDays`), self-hosted relays' URLs and names, online status of each device (control socket), when a computer switched off v1 | yes | no | — |
 | Device ids (`did`), device kind (phone / computer), signing public keys and the peer list of each ticket, addresses, the account id | yes | yes | ticket only (ASR.md §3) |
@@ -701,11 +847,14 @@ account service holds anyway. The privacy policy states these categories.
 | Android 7+ (App, minSdk 24) | `KeyPairGenerator("EC")` + `Signature("SHA256withECDSA")` (convert DER ↔ r‖s), `KeyAgreement("ECDH")`, `Cipher("AES/GCM/NoPadding")`, HKDF over `Mac("HmacSHA256")`; validate peer points yourself | `sig` in AndroidKeyStore (API 23+, StrongBox when available). `kx`: in AndroidKeyStore with `PURPOSE_AGREE_KEY` on API 31+; below that a software key whose PKCS#8 bytes are encrypted by an AndroidKeyStore AES-256-GCM key |
 | macOS shell (debug only) | CryptoKit as on iOS | Keychain |
 | Desktop agent (Node 22 / Bun) | `node:crypto` (`sign/verify` with `dsaEncoding: "ieee-p1363"`, `createECDH`, `hkdfSync`, `aes-256-gcm`), or WebCrypto where Bun lacks an option | macOS: a 0600 file under `~/.pocket/keys/` excluded from Time Machine, or the login Keychain via the signed helper; Windows: DPAPI (CurrentUser) protected file under `%USERPROFILE%\.pocket\keys\` |
-| Trays (Swift, C#) | none — they display words and forward the user's decision to the agent | — |
+| Trays (Swift, C#) | none — they show the pairing code of a new computer, or take the code the user types for a new device and pass it to the agent, which runs the pairing | — |
 
 Dart in the App composes the protocol (JSON, headers, order of checks) over a native channel that exposes only
 primitives and key handles; private keys never enter Dart. The pure-Dart SHA-256 the App already has may be used for
-hashing.
+hashing. The pairing (§6.2) needs point addition and multiplication on arbitrary points (`M`, `N`, the peer's share),
+which CryptoKit, the Android Keystore and .NET do not offer: it runs in Dart (BigInt, like [pake.mjs](pake.mjs)) and, on
+computers, in the agent (an inlined copy of pake.mjs). Its secrets (`x`, `y`, `w`, the code) live for one attempt and
+are not device keys.
 
 ## 16. Versioning
 Every structure carries `v: 1`, every label starts `pocket/v1 `. A future suite or format change uses `v: 2` and
@@ -717,7 +866,10 @@ a v2 lock would start with a new genesis that references the v1 head the same wa
 rebuilt byte-for-byte; products may sign with random nonces). Every implementation — relay (JS), coordination (JS),
 agent (JS), App (Dart over Swift/Kotlin primitives), ASR gateway (JS) — MUST pass every valid and invalid case relevant
 to it, with the expected error **code** for each invalid case. `about.contexts` explains how vector contexts (`prefix`,
-device handles) map to state.
+device handles) map to state. The pairing vectors (`spake2`, `pair`) come from a second, independent SPAKE2 in
+`gen-vectors.mjs`; `spake2.rfc9382` are RFC 9382's own. [pake.mjs](pake.mjs) must reproduce all of them: `--check`
+runs it against the file, and `node --test docs/protocol/pake.test.mjs` tests it further (Node's ECDH as an oracle for
+the scalar multiplication, malformed points, the inlined form the desktop agent uses).
 
 ## Appendix A. Error codes
 `bad-b64u`, `bad-utf8`, `bad-json`, `too-large`, `bad-key`, `bad-tag`, `bad-zip`, `bad-seal`, `bad-header`, `bad-format`,
@@ -726,6 +878,9 @@ device handles) map to state.
 `unknown-sender`, `revoked-sender`, `suspended-sender`, `denied`, `replay`, `stale`, `no-key`, `bad-payload`,
 `wrong-object`, `bad-realm`, `rollback`, `bad-grant`, `bad-kid`, `bad-blob`, `unknown-key`, `key-not-valid`,
 `bad-ticket`, `wrong-aud`, `expired`, `wrong-account`, `bad-proof`, `bad-nonce`, `body-mismatch`.
+Pairing (§6, pake.mjs): `bad-code` (not six digits), `bad-params` (a context field is malformed), `bad-point` (a received
+share is not a valid point, or `K` is the point at infinity), `bad-confirm` (the key confirmation failed: wrong code or
+different views of the context), `used` (an attempt answered twice).
 These are for logs and tests; users see plain sentences.
 
 ## Appendix B. Why these choices
@@ -743,3 +898,9 @@ These are for logs and tests; users see plain sentences.
   it.
 - **STREAM-style chunking** (chunk index and last flag in the nonce): random-access, resumable downloads, and
   truncation detection without a trailer.
+- **A typed 6-digit code with SPAKE2 instead of comparing words**: digits read the same in every language and are typed,
+  not tapped, so the comparison cannot be skipped or confirmed by a misclick; SPAKE2 makes a short code safe against a
+  server that sees everything (one online guess per attempt, nothing to search offline), where hashing or MACing six
+  digits would not be. SPAKE2 rather than CPace or OPAQUE: RFC 9382 gives P-256 parameters and test vectors and needs
+  nothing beyond plain point arithmetic (CPace maps the password onto the curve), and no stored verifier has to be
+  protected (what OPAQUE is for) because the code lives for one attempt.

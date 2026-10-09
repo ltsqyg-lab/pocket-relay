@@ -1,6 +1,7 @@
 # Pocket coordination server — API v2
 
-Status: implementation spec, phase 1 (2026-10-08). The coordination server is closed source; this document is its
+Status: implementation spec, phase 1 (2026-10-08); pairing with a 6-digit code (§4.5) replaces the 6 words (2026-10-09).
+The coordination server is closed source; this document is its
 public interface. It extends today's server (`https://pocket.pocketcli.net`, docs/PROTOCOL.md, "v1") with `/v2`.
 Crypto and data formats: [E2EE.md](E2EE.md). Relays: [RELAY.md](RELAY.md). Old → new map: [MAPPING.md](MAPPING.md).
 
@@ -8,7 +9,9 @@ Crypto and data formats: [E2EE.md](E2EE.md). Relays: [RELAY.md](RELAY.md). Old �
 > 只转发,签不出)、包好的内容钥匙(打不开)、短期中继票据、设备表(netmap)、控制推送、中继登记、撤销名单、清除令。
 > 自建中继可以只有公网 IP、没有域名(照 Tailscale 的 derper):中继自签证书、打印带证书指纹和认领码的连接串,协调钉住指纹去认领,
 > 设备从 netmap 拿到指纹,连它时也只认这个指纹(§8、§10)。
-> 它不再存、不再转任何对话内容;双跑期内老接口照旧给老版本用(MAPPING.md)。
+> 新设备加入靠 6 位数配对码(§4.5):新设备显示、用户在已批准的管理设备上输入,两边跑 SPAKE2;协调只转发四个看不懂的字段、管顺序和次数,
+> 没走完配对的 `add` 一律不收。
+> 它不再存、不再转任何对话内容;双跑期内老接口照旧给老版本用(MAPPING.md),双跑结束后 v1 的内容接口一律 410(§19)。
 
 ---
 
@@ -20,6 +23,7 @@ manifest, the review/demo account, admin tooling.
 
 Adds:
 - a device registry: each device's two public keys, kind, platform, name, virtual address, state;
+- **pairing** of a new device with a 6-digit code (§4.5): relays the SPAKE2 messages, enforces order and attempt limits;
 - the account's **lock log** (E2EE §5): stored, validated, ordered (compare-and-swap), served, pushed;
 - **grants** (E2EE §8.4) as opaque sealed blobs, routed to their recipients;
 - **tickets** for relays and ASR gateways (E2EE §12.2), and the **netmap** (E2EE §12.3);
@@ -61,9 +65,10 @@ open-source service — ASR.md).
 ### 4.1 Enroll
 `POST /v2/devices/enroll` (Bearer)
 ```json
-{ "name": "iPhone 18 Pro", "platform": "ios", "sig": "<b64u 65 B>", "kx": "<b64u 65 B>", "sasLang": "zh" | "en",
+{ "name": "iPhone 18 Pro", "platform": "ios", "sig": "<b64u 65 B>", "kx": "<b64u 65 B>",
   "proof": { "a": "<b64u enroll-auth JSON>", "s": "<b64u signature>" } }
 ```
+(`sasLang`, sent by versions that compared 6 words, is ignored.)
 Server:
 1. Validate keys (E2EE §3.3) and name; verify `proof` (E2EE §13, `enroll-auth`: bound to these two keys and to the
    presented token, `|now − ts| ≤ 5 min`, signed by `sig`; `400 bad-proof` / `stale` / `bad-sig`) — so only a holder of
@@ -78,28 +83,34 @@ Server:
    - the `did` is live in the lock → `active`; revoked → `revoked` (409, new keys needed: the device generates a new
      pair and enrolls as a new device);
    - otherwise → `pending`: create a pending entry (expires after 24 h), push `enroll_pending` to every live admin device
-     of the account (§9) and a sign-in style notification to phones.
+     of the account (§9), `enroll_result {state: "pending", pendingId}` to the device itself (a `waiting` device that
+     becomes `pending` when a lock appears gets the same event) and a sign-in style notification to phones. The device
+     then pairs (§4.5).
 5. Answer
 ```json
 { "did": "…", "addr": "100.64.12.7", "state": "genesis" | "waiting" | "pending" | "active" | "suspended" | "revoked",
-  "pendingId": "pd_…"?, "lock": { "seq": 9, "h": "…", "genesis": "…" }?, "demo": true? }
+  "pendingId": "pd_…"?, "pair": { "attempt", "stage", "left", … }?, "lock": { "seq": 9, "h": "…", "genesis": "…" }?, "demo": true? }
 ```
-`demo: true` only on the review demo account (§15): its new phones are approved by the demo computer, which has no screen,
-so the app's waiting screen tells the user to just tap "They match".
+`pair` (only while `pending` and after the first offer): the device's own pairing progress, as in `GET /v2/pair/{pendingId}`
+(§4.5), so a restarted device continues without first hitting `409 stale`.
+`demo: true` only on the review demo account (§15): its only admin is the demo computer, which has no screen and nobody to
+type the code into it, so the device adds the code it shows to its offer (`demoCode`, §4.5) and the demo computer pairs
+with that.
 Rate limit: 10 enrollments per account per hour, 3 pending entries per account at a time.
 
-`active` here means "in the lock", not "turned on": a new device turns on only after its own user confirmed the words on
-it (E2EE §6.1). A computer that is in the lock but has no realm yet, or a phone that has not confirmed, is a normal
-state (the user has not compared on that device yet), not a fault; coordination does not track it.
+`active` here means "in the lock", not "turned on": a new device turns on only after the pairing it took part in
+succeeded on its side (E2EE §6). Coordination does not track that.
 
 ### 4.2 Lists
 - `GET /v2/devices` → `{ "devices": [ { did, kind, platform, name, addr, sig, kx, state, sas?, online, lastSeen, createdAt,
   v1: { agentId? }, current } ] }` — `state` ∈ `waiting`, `pending`, `active`, `suspended`, `revoked`;
   `sas` copied from the lock's `add`. Devices treat this as display data; trust comes from the lock.
-- `GET /v2/devices/pending` → `{ "pending": [ { pendingId, did, kind, platform, name, addr, sig, kx, sasLang, at, expiresAt } ] }`
-  (any live device of the account; only admins can act on it).
-- `POST /v2/devices/pending/{pendingId}/reject` → removes it, pushes `enroll_result {state: "rejected"}` to the requester.
-  (Coordination-level; no signature needed — rejecting can only reduce access.)
+- `GET /v2/devices/pending` → `{ "pending": [ { pendingId, did, kind, platform, name, addr, sig, kx, at, expiresAt, pair? } ] }`
+  (any device of the account; only admins can act on it). `pair` (§4.5): present for callers that are live admins (the admin
+  view: `pB`, `cB` for the admin that answered, `demoCode` on the demo account) and on the caller's own entry (the
+  new-device view); `null` until the first offer. Other callers get the entries without `pair`.
+- `POST /v2/devices/pending/{pendingId}/reject` → removes it (with its pairing), pushes `enroll_result {state: "rejected"}`
+  to the requester. (Coordination-level; no signature needed — rejecting can only reduce access.)
 
 ### 4.3 Suspend and remove
 - `POST /v2/devices/{did}/suspend` (any live phone of the account, or the device itself) → coordination suspension
@@ -122,6 +133,104 @@ From then on the v1 path is closed for that computer whatever client uses its ag
 (`/v1/attachments/{sha}/upload-url`, `/uploaded`, `PUT`). An old desktop version installed again on that computer — or a
 copy of its token — cannot report transcripts in plaintext any more.
 
+### 4.5 Pairing (6-digit code)
+
+> **中文摘要**　新设备 B 屏幕上显示 6 位数配对码,用户在已批准的管理设备 A 上**输入**(不是点「一样」,免得误触);两边拿这个码跑 SPAKE2
+> (E2EE §6,参考实现 `docs/protocol/pake.mjs`)。协调只转发、只存它看不懂的四样(`pB`、`pA`、`cA`、`cB`),管顺序、次数和谁能做什么;
+> A 核对过 B 的确认值才签 `add`,协调也只收走完过一次配对的 `add`(`pair-required`)。每个待批准条目最多 5 轮,第 5 轮也没对上就作废、
+> B 要重新登录。演示账号的演示电脑没有屏幕,审核员手机在 offer 里把码一起交上来(`demoCode`,只有演示账号收)。
+
+Roles: **B** = the new device (the device of a pending entry; it shows the code); **A** = the approver: a device that is live
+and admin in the lock and not suspended (§4.3), where the user types the code shown on B. The code is the SPAKE2 password;
+the messages and confirmation values are defined in E2EE §6 and computed by `docs/protocol/pake.mjs` (coordination ships
+an identical copy as `server/pake.mjs` for the demo computer). Coordination checks only their format — a SPAKE2 message is
+a P-256 point (65 bytes, uncompressed, on the curve), a confirmation value is 32 bytes — and never learns the code.
+
+**Flow** (one *attempt*; attempts are numbered 1–5 per pending entry):
+```
+B (new device, shows the code)        coordination                          A (live admin, user types the code)
+enroll → pending (§4.1)
+POST /v2/pair/offer {pendingId, attempt, pB}  ── push pair_offer ─────────▶  (or GET /v2/devices/pending)
+                                      ◀──────────────────────────────────  POST /v2/pair/answer {pendingId, attempt, pA, cA}
+push pair_answer (or GET /v2/pair/{id}) ◀──
+check cA:
+  ok    → POST /v2/pair/confirm {pendingId, attempt, cB}  ── push pair_confirm to that A ──▶ check cB; ok → sign `add` (sas: true)
+  wrong → POST /v2/pair/fail {pendingId, attempt}         ── push pair_fail to the admins ─▶ ask for the code again
+          then POST /v2/pair/offer {attempt + 1, …}
+```
+
+**Endpoints** (Bearer, token bound to a device, §2; bodies are JSON; `pendingId` is `pd_` + 16 letters and digits):
+
+| Call | Who | Body | Answer |
+|---|---|---|---|
+| `POST /v2/pair/offer` | B | `{ pendingId, attempt, pB, demoCode? }` | `{ ok, attempt, stage: "offered", left }` |
+| `POST /v2/pair/answer` | A | `{ pendingId, attempt, pA, cA }` | `{ ok, attempt, stage: "answered" }` |
+| `POST /v2/pair/confirm` | B | `{ pendingId, attempt, cB }` | `{ ok, attempt, stage: "confirmed" }` |
+| `POST /v2/pair/fail` | B | `{ pendingId, attempt }` | `{ ok, attempt, stage: "failed", left, final?, voided? }` |
+| `GET /v2/pair/{pendingId}` | B or A | — | the pending entry (as in `GET /v2/devices/pending`) with `pair` in the caller's view |
+
+Rules:
+- **offer** starts attempt `attempt` = the previous attempt + 1 (the first is 1). It may start while the previous attempt is
+  in any stage (a device that restarted lost its SPAKE2 secret and simply starts the next attempt; an earlier confirmed
+  attempt stays recorded). Coordination stores `pB` and pushes `pair_offer` to every live admin of the account.
+  Re-sending the current attempt with the same `pB` (a lost answer) returns the current state and pushes nothing.
+- **answer**: only the current attempt while it is `offered`; the first admin to answer owns the attempt (another admin
+  then gets `409 stale`); the same admin re-sending the same `pA`/`cA` gets `200`. A cannot answer its own entry
+  (`403 not-admin`). Pushes `pair_answer` to B.
+- **confirm**: B, only for the current attempt while it is `answered`, after `cA` checked out. Records the pending entry
+  as *paired by A* (A = the admin that answered that attempt) and pushes `pair_confirm` to that A.
+- **fail**: B, for the current attempt while it is `offered` or `answered` (`cA` was wrong — the code was mistyped — or B
+  gives the attempt up). Pushes `pair_fail {pendingId, did, attempt, left}` to the live admins; B then offers `attempt + 1`.
+- **`add`** (§5): accepted only when the device has a live pending entry that is paired by the statement's signer (`by`)
+  and the statement says `sas: true`; otherwise `403 pair-required`. Approving without comparing (`sas: false`) is no longer
+  accepted — for any account, the demo account included. (A signs only after checking `cB`; this check is coordination's
+  second line, the devices' own checks are the first, E2EE §6.)
+
+`pair` object (caller's view; `null` before the first offer):
+- common: `attempt`, `stage` (`offered` → `answered` → `confirmed`; or `failed`), `left` (attempts B may still start after
+  this one = 5 − attempt), `fails` (attempts B reported as failed), `at` (last change, ms), `paired: true` once an attempt
+  of this entry was confirmed;
+- new device (B, its own entry): `pA`, `cA` and `by` (the did of the admin that answered; B takes that admin's `sig`/`kx`
+  from the lock it validated, E2EE §6) once answered;
+- live admins: `pB` (not after `failed`), `by` (the admin that answered), `cB` (only for that admin, once confirmed),
+  `demoCode` (demo account, while `offered`).
+
+Pushes (§9): `pair_offer` = a pending entry with the admin view of `pair` (to live admins); `pair_answer {pendingId,
+attempt, by, pA, cA}` (to B); `pair_confirm {pendingId, did, attempt, cB}` (to the admin that answered); `pair_fail
+{pendingId, did, attempt, left, final?}` (to live admins); `enroll_result {state: "pending" | "failed", pendingId, …}` (to B).
+Every push can be lost: B pulls `GET /v2/pair/{pendingId}` (or enrolls again, §4.1), A pulls `GET /v2/devices/pending`.
+
+**Limits**:
+- 5 attempts per pending entry. When attempt 5 fails, or B offers attempt 6, coordination voids the entry: deletes it,
+  pushes `enroll_result {state: "failed", reason: "pair-limit", pendingId, error: "配对失败次数太多,重新登录" / "Too many
+  wrong codes. Sign in again"}` to B and `pair_fail {final: true, left: 0}` to the admins, **revokes B's token** and closes
+  its control socket (4401). The offer of attempt 6 is answered `429 pair-limit {voided: true}`; the failing call of
+  attempt 5 gets `200 {final: true, voided: true, reason: "pair-limit"}`. B signs in again and enrolls: a new pending
+  entry with 5 new attempts (the enrollment limits of §4.1 and the sign-in limits apply), so the code cannot be guessed
+  faster by restarting.
+- `offer`, `answer`, `confirm`, `fail`: 10 each per device per minute; `GET /v2/pair/…`: 120 per device per minute (`429 rate`).
+- A pending entry still expires after 24 h (`enroll_result {state: "expired"}`), and rejecting it ends its pairing.
+
+**Errors**: a malformed field (`pendingId`, `attempt`, `pB`/`pA` not a 65-byte point on P-256, `cA`/`cB` not 32 bytes,
+`demoCode` not 6 digits or sent by another account) → `400 bad-pair`; an unknown or expired `pendingId`, another account's,
+an offer / confirm / fail for an entry that is not the caller's, or a pull by a device that is neither B nor a live admin →
+`404 not-found`; an attempt or stage that does not fit → `409 stale` with the current `{attempt, stage}`; an answer by a
+device that is not a live admin, or by B itself → `403 not-admin`.
+
+**Demo account** (§15): when enroll answered `demo: true`, B adds `demoCode` — the 6 digits it shows — to its offers.
+Coordination accepts the field only on the demo account (`400 bad-pair` elsewhere), keeps it with the attempt until it is
+answered or failed, and passes it to the admins (`pair_offer` and the admin view of `pair`). The demo computer, the
+account's only admin, runs A with it: answer → (B confirms) → check `cB` → `add` with `sas: true`. Nothing else differs; the
+`add` check has no exception. (Clients send `demoCode` only when enroll says `demo: true` **and** the account is the review
+account built into them, E2EE §6.6 — a lying coordination server must not be able to collect a real code this way.) After
+a restart between its answer and B's confirmation the demo computer cannot check `cB`; it rejects that pending entry and B
+enrolls again.
+
+**Security notes.** Coordination sees `pB`, `pA`, `cA`, `cB` and, except on the demo account, never the code. The SPAKE2
+messages reveal nothing about it; whoever runs one side of an attempt with a guessed code gets exactly one online guess
+(1 in 10^6) and is detected by the other side's check. The per-entry limit and the forced sign-in bound how often that can
+be tried, and every attempt needs the user to type a code on an admin device.
+
 ## 5. Lock log
 - `GET /v2/lock?since=<seq>` → `{ "acct", "genesis", "head": {seq, h}, "statements": [ {p, s}, … ] }` (statements after `since`).
 - `POST /v2/lock` `{ "statement": { "p", "s" } }`
@@ -130,6 +239,8 @@ copy of its token — cannot report transcripts in plaintext any more.
      demo computer (§15).
   2. Compare-and-swap: the statement's `prev`/`seq` must extend the current head, else
      `409 { "code": "head", "head": {seq, h} }`.
+     For `genesis` and `add` the device entry must equal the device's registration (`400 bad-device`); an `add` also needs
+     a confirmed pairing by its signer and `sas: true` (§4.5, else `403 pair-required`).
   3. Store, then side effects:
      - `add`: device `pending`/`waiting` → `active`; push `enroll_result {state: "active"}` to it; push `lock` to all;
        push `notify {kind: "device_added", did, name, platform, title, body}` to the other phones.
@@ -199,8 +310,12 @@ address checks; an address on the relay's own host and port keeps the pin. A rel
 | `hello_ok` | `did`, `state`, `time`, `netmapVer`, `lockHead` | the device | after connect |
 | `netmap` | `ver` | all of the account | refetch `/v2/netmap` |
 | `lock` | `head` | all | refetch `/v2/lock?since=` |
-| `enroll_pending` | `pendingId`, `kind`, `name`, `platform` | live admins | show the approval screen |
-| `enroll_result` | `state` (`active`, `rejected`, `expired`) | the enrolling device | |
+| `enroll_pending` | `pendingId`, `kind`, `name`, `platform` | live admins | a device wants to join (its offer follows) |
+| `enroll_result` | `state` (`pending`, `active`, `rejected`, `expired`, `failed`), `pendingId`, `reason`?, `error`? | the enrolling device | `pending`: make your offer (§4.5); `failed` + `reason: "pair-limit"`: 5 attempts used, the token is revoked, sign in again |
+| `pair_offer` | a pending entry (§4.2) with the admin view of `pair` (`attempt`, `pB`, `demoCode`?) | live admins | ask the user for the code shown on that device |
+| `pair_answer` | `pendingId`, `attempt`, `by`, `pA`, `cA` | the new device | check `cA` (with `by`'s keys from the lock), then confirm or fail |
+| `pair_confirm` | `pendingId`, `did`, `attempt`, `cB` | the admin that answered | check `cB`, then sign `add` |
+| `pair_fail` | `pendingId`, `did`, `attempt`, `left`, `final`? | live admins | the code did not match (`final`: the entry is void) |
 | `grant` | `cursor` | the recipient | fetch grants |
 | `revocations` | `doc` (signed) | all | hand to the relay (`POST /v1/revocations`) |
 | `prefs` | `listDays` | computers | as v1 `prefs` |
@@ -322,17 +437,17 @@ inherits an old cut-off.
 
 ## 14. Preferences, language, notifications
 Same data and rules as v1. For v2 devices they travel on the control socket (`prefs`, `user_lang`, `notify`) instead of
-the v1 sockets. "New device signed in" becomes "New device wants to join — approve it on a device you trust" for v2
-accounts.
+the v1 sockets. "New device signed in" becomes "New device wants to join — enter the 6-digit code shown on it" for v2
+accounts (`notify {kind: "device_pending"}`).
 
 ## 15. Review / demo account
 The demo computer (`server/demo-agent.mjs`, systemd `pocket-demo`) becomes a v2 computer: it keeps its device keys in
 its state directory, creates the demo account's genesis (the only computer allowed to — on the demo account no phone may
-create it), **auto-approves** every pending device of the demo account at once (`add` with `sas: false`,
-`admin: false`), grants its keyring, writes its sample sessions as objects to the official relay over loopback and
-answers commands with the same canned replies as today. A reviewer's phone that enrolls before the demo lock exists
-gets `waiting`, turns `pending` when the lock appears and is approved at once. Account deletion and
-re-creation work as today; the demo account never gets `reset`.
+create it), **pairs with every new device of the demo account at once** — it answers each offer with the `demoCode` the
+device sent (§4.5), checks `cB` and signs `add` with `sas: true`, `admin: false` — grants its keyring, writes its sample
+sessions as objects to the official relay over loopback and answers commands with the same canned replies as today. A
+reviewer's phone that enrolls before the demo lock exists gets `waiting`, turns `pending` when the lock appears and pairs
+then. Account deletion and re-creation work as today; the demo account never gets `reset`.
 
 ## 16. ASR tickets
 `POST /v2/tickets {aud: "asr:official"}` issues a ticket for the official ASR gateway (ASR.md §3) with `peers: []`.
@@ -343,7 +458,9 @@ New tables (SQLite, same database as v1):
 ```
 devices   (did PK, acct, kind, platform, name, addr UNIQUE, sig, kx, state, sas_lang, token_hash, agent_id,
            created_at, updated_at, last_seen, suspended_at)
-pending   (pending_id PK, did, acct, created_at, expires_at)
+pending   (pending_id PK, did, acct, created_at, expires_at,
+           pair_attempt, pair_stage, pair_pb, pair_pa, pair_ca, pair_cb, pair_by, pair_at, pair_fails,
+           pair_ok_by, pair_ok_attempt, pair_ok_at, demo_code)          -- §4.5; the pairing goes with its entry
 lock_log  (acct, seq, payload BLOB, sig BLOB, hash, at, PRIMARY KEY (acct, seq))
 lock_archive (acct, archived_at, seq, payload, sig, hash)
 grants    (id INTEGER PK, acct, to_did, realm, by_did, epochs TEXT, seal TEXT, at)
@@ -358,6 +475,7 @@ purge_queue (id INTEGER PK, relay_id, order_doc TEXT, next_try, tries, created_a
 | What | Limit |
 |---|---|
 | Enrollments | 10 per account per hour; 3 pending at once; pending expires after 24 h |
+| Pairing | 5 attempts per pending entry (then void + sign in again); offer / answer / confirm / fail 10 each per device per minute; pulls 120 per device per minute |
 | Lock appends | 60 per account per hour; payload ≤ 16 KiB |
 | Grants | 50 per call; 64 KiB each; 500 stored per device |
 | Tickets | 60 per device per hour (ASR: 120) |
@@ -371,8 +489,18 @@ The v1 API keeps working for old clients during the transition (2–4 weeks); it
 uses which path, what old Apps see, downgrade protection, when plaintext is deleted — is specified in
 [MAPPING.md](MAPPING.md) §1.
 
+When the transition ends the server runs with `POCKET_V1_CONTENT=off`: every v1 content entry answers
+`410 {code: "v1-off", error: "先更新 Pocket" / "Update Pocket first"}` — sessions (`/v1/sessions`, `…/messages`,
+`…/dispatch`, `…/answer`, `…/stop`, `…/handoff`), `/v1/search`, `/v1/dispatch`, `/v1/voice/dispatch`, attachments
+(`/v1/attachments/…`: GET / HEAD / upload-url / uploaded / PUT), `/v1/agents/{id}/usage/refresh`, `/v1/agents/{id}/folders`,
+and the computer socket `/v1/agent/ws` (410 at the upgrade). `GET /v1/agents` still lists the computers (name, online from
+the control socket, `v2 {did, addr, state}`) but without content (`projects: []`, `models: {}`, `engines`, `permissions`,
+`usage` null, …). Accounts, sign-in, email codes, the website, downloads, OAuth and `/v1/app/ws` (sign-in
+notifications) keep working. A computer already on v2 that an old version tries to use over v1 gets the same
+`410` wording with `code: "v2-only"`.
+
 ## 20. Error codes (`code`)
 `bad-request`, `bad-key`, `bad-name`, `bad-proof`, `stale`, `not-bound`, `revoked`, `suspended`, `no-lock`,
-`genesis-not-allowed`, `head`
+`genesis-not-allowed`, `head`, `bad-pair`, `pair-required`, `pair-limit`
 (+ `head`), any E2EE validation code (`bad-sig`, `not-admin`, …), `not-found`, `not-admin`, `relay-unverified`,
 `relay-unreachable`, `relay-url`, `relay-pin-mismatch`, `relay-claim-rejected`, `rate`, `reset-window`, `password`, `code`.

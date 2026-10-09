@@ -5,6 +5,8 @@
     "encoding": "All byte strings are base64url without padding unless the field name says hex. *Text fields are the same bytes shown as UTF-8 for reading; the base64url field is normative.",
     "signatures": "ECDSA signatures here are deterministic (RFC 6979) so this file is reproducible. Implementations may sign with randomized ECDSA; they must verify these.",
     "contexts": "`prefix` = how many statements of lock.chain to apply to get the lock state; device names refer to `devices`.",
+    "pairing": "`spake2` (RFC 9382 Appendix B, reproduced) and `pair` (E2EE.md §6): scalars, points and derived bytes are lowercase hex in fields ending in Hex (as the RFC writes them); genesis, sigA/kxA/sigB/kxB are base64url as in lock statements; codes, ids and names are text. pake.mjs is the reference implementation and must reproduce every value (pake.test.mjs; `--check` runs it too).",
+    "legacy": "`sas` and `wordlists`: the six verification words of the first E2EE release, replaced by the pairing code on 2026-10-09 (E2EE.md §6). No longer part of the protocol; kept only until every implementation has dropped its words code, then deleted.",
     "testOnly": "All private keys below are public test material.",
     "now": 1791417600000,
     "account": "u_test0001"
@@ -253,6 +255,589 @@
         "sessionId": "5f1c2a5e-8f2b-4c55-9b7e-6c0d7a2b9e10",
         "xv": 5,
         "sk": "hlyxMPwc_Un0Z0Z14zTVUw"
+      }
+    ]
+  },
+  "spake2": {
+    "suite": "SPAKE2-P256-SHA256-HKDF-HMAC (RFC 9382); A uses M, B uses N; K, pA, pB uncompressed SEC1",
+    "M": "02886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12f",
+    "N": "03d8bbd6c639c62937b04d997f38c3770719c629d7014d49a24b4f98baa1292b49",
+    "MUncompressedHex": "04886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12f5ff355163e43ce224e0b0e65ff02ac8e5c7be09419c785e0ca547d55a12e2d20",
+    "NUncompressedHex": "04d8bbd6c639c62937b04d997f38c3770719c629d7014d49a24b4f98baa1292b4907d60aa6bfade45008a636337f5168c64d9bd36034808cd564490b1e656edbe7",
+    "rfc9382": [
+      {
+        "A": "server",
+        "B": "client",
+        "wHex": "2ee57912099d31560b3a44b1184b9b4866e904c49d12ac5042c97dca461b1a5f",
+        "xHex": "43dd0fd7215bdcb482879fca3220c6a968e66d70b1356cac18bb26c84a78d729",
+        "yHex": "dcb60106f276b02606d8ef0a328c02e4b629f84f89786af5befb0bc75b6e66be",
+        "pAHex": "04a56fa807caaa53a4d28dbb9853b9815c61a411118a6fe516a8798434751470f9010153ac33d0d5f2047ffdb1a3e42c9b4e6be662766e1eeb4116988ede5f912c",
+        "pBHex": "0406557e482bd03097ad0cbaa5df82115460d951e3451962f1eaf4367a420676d09857ccbc522686c83d1852abfa8ed6e4a1155cf8f1543ceca528afb591a1e0b7",
+        "KHex": "0412af7e89717850671913e6b469ace67bd90a4df8ce45c2af19010175e37eed69f75897996d539356e2fa6a406d528501f907e04d97515fbe83db277b715d3325",
+        "TTHex": "06000000000000007365727665720600000000000000636c69656e74410000000000000004a56fa807caaa53a4d28dbb9853b9815c61a411118a6fe516a8798434751470f9010153ac33d0d5f2047ffdb1a3e42c9b4e6be662766e1eeb4116988ede5f912c41000000000000000406557e482bd03097ad0cbaa5df82115460d951e3451962f1eaf4367a420676d09857ccbc522686c83d1852abfa8ed6e4a1155cf8f1543ceca528afb591a1e0b741000000000000000412af7e89717850671913e6b469ace67bd90a4df8ce45c2af19010175e37eed69f75897996d539356e2fa6a406d528501f907e04d97515fbe83db277b715d332520000000000000002ee57912099d31560b3a44b1184b9b4866e904c49d12ac5042c97dca461b1a5f",
+        "hashTTHex": "0e0672dc86f8e45565d338b0540abe6915bdf72e2b35b5c9e5663168e960a91b",
+        "KeHex": "0e0672dc86f8e45565d338b0540abe69",
+        "KaHex": "15bdf72e2b35b5c9e5663168e960a91b",
+        "KcAHex": "00c12546835755c86d8c0db7851ae86f",
+        "KcBHex": "a9fa3406c3b781b93d804485430ca27a",
+        "cAHex": "58ad4aa88e0b60d5061eb6b5dd93e80d9c4f00d127c65b3b35b1b5281fee38f0",
+        "cBHex": "d3e2e547f1ae04f2dbdbf0fc4b79f8ecff2dff314b5d32fe9fcef2fb26dc459b"
+      },
+      {
+        "A": "",
+        "B": "client",
+        "wHex": "0548d8729f730589e579b0475a582c1608138ddf7054b73b5381c7e883e2efae",
+        "xHex": "403abbe3b1b4b9ba17e3032849759d723939a27a27b9d921c500edde18ed654b",
+        "yHex": "903023b6598908936ea7c929bd761af6039577a9c3f9581064187c3049d87065",
+        "pAHex": "04a897b769e681c62ac1c2357319a3d363f610839c4477720d24cbe32f5fd85f44fb92ba966578c1b712be6962498834078262caa5b441ecfa9d4a9485720e918a",
+        "pBHex": "04e0f816fd1c35e22065d5556215c097e799390d16661c386e0ecc84593974a61b881a8c82327687d0501862970c64565560cb5671f696048050ca66ca5f8cc7fc",
+        "KHex": "048f83ec9f6e4f87cc6f9dc740bdc2769725f923364f01c84148c049a39a735ebda82eac03e00112fd6a5710682767cff5361f7e819e53d8d3c3a2922e0d837aa6",
+        "TTHex": "00000000000000000600000000000000636c69656e74410000000000000004a897b769e681c62ac1c2357319a3d363f610839c4477720d24cbe32f5fd85f44fb92ba966578c1b712be6962498834078262caa5b441ecfa9d4a9485720e918a410000000000000004e0f816fd1c35e22065d5556215c097e799390d16661c386e0ecc84593974a61b881a8c82327687d0501862970c64565560cb5671f696048050ca66ca5f8cc7fc4100000000000000048f83ec9f6e4f87cc6f9dc740bdc2769725f923364f01c84148c049a39a735ebda82eac03e00112fd6a5710682767cff5361f7e819e53d8d3c3a2922e0d837aa620000000000000000548d8729f730589e579b0475a582c1608138ddf7054b73b5381c7e883e2efae",
+        "hashTTHex": "642f05c473c2cd79909f9a841e2f30a70bf89b18180af97353ba198789c2b963",
+        "KeHex": "642f05c473c2cd79909f9a841e2f30a7",
+        "KaHex": "0bf89b18180af97353ba198789c2b963",
+        "KcAHex": "c6be376fc7cd1301fd0a13adf3e7bffd",
+        "KcBHex": "b7243f4ae60440a49b3f8cab3c1fba07",
+        "cAHex": "47d29e6666af1b7dd450d571233085d7a9866e4d49d2645e2df975489521232b",
+        "cBHex": "3313c5cefc361d27fb16847a91c2a73b766ffa90a4839122a9b70a2f6bd1d6df"
+      },
+      {
+        "A": "server",
+        "B": "",
+        "wHex": "626e0cdc7b14c9db3e52a0b1b3a768c98e37852d5db30febe0497b14eae8c254",
+        "xHex": "07adb3db6bc623d3399726bfdbfd3d15a58ea776ab8a308b00392621291f9633",
+        "yHex": "b6a4fc8dbb629d4ba51d6f91ed1532cf87adec98f25dd153a75accafafedec16",
+        "pAHex": "04f88fb71c99bfffaea370966b7eb99cd4be0ff1a7d335caac4211c4afd855e2e15a873b298503ad8ba1d9cbb9a392d2ba309b48bfd7879aefd0f2cea6009763b0",
+        "pBHex": "040c269d6be017dccb15182ac6bfcd9e2a14de019dd587eaf4bdfd353f031101e7cca177f8eb362a6e83e7d5e729c0732e1b528879c086f39ba0f31a9661bd34db",
+        "KHex": "0445ee233b8ecb51ebd6e7da3f307e88a1616bae2166121221fdc0dadb986afaf3ec8a988dc9c626fa3b99f58a7ca7c9b844bb3e8dd9554aafc5b53813504c1cbe",
+        "TTHex": "06000000000000007365727665720000000000000000410000000000000004f88fb71c99bfffaea370966b7eb99cd4be0ff1a7d335caac4211c4afd855e2e15a873b298503ad8ba1d9cbb9a392d2ba309b48bfd7879aefd0f2cea6009763b04100000000000000040c269d6be017dccb15182ac6bfcd9e2a14de019dd587eaf4bdfd353f031101e7cca177f8eb362a6e83e7d5e729c0732e1b528879c086f39ba0f31a9661bd34db41000000000000000445ee233b8ecb51ebd6e7da3f307e88a1616bae2166121221fdc0dadb986afaf3ec8a988dc9c626fa3b99f58a7ca7c9b844bb3e8dd9554aafc5b53813504c1cbe2000000000000000626e0cdc7b14c9db3e52a0b1b3a768c98e37852d5db30febe0497b14eae8c254",
+        "hashTTHex": "005184ff460da2ce59062c87733c299c3521297d736598fc0a1127600efa1afb",
+        "KeHex": "005184ff460da2ce59062c87733c299c",
+        "KaHex": "3521297d736598fc0a1127600efa1afb",
+        "KcAHex": "f3da53604f0aeecea5a33be7bddf6edf",
+        "KcBHex": "9e3f86848736f159bd92b6e107ec6799",
+        "cAHex": "bc9f9bbe99f26d0b2260e6456e05a86196a3307ec6663a18bf6ac825736533b2",
+        "cBHex": "c2370e1bf813b086dff0d834e74425a06e6390f48f5411900276dcccc5a297ec"
+      },
+      {
+        "A": "",
+        "B": "",
+        "wHex": "7bf46c454b4c1b25799527d896508afd5fc62ef4ec59db1efb49113063d70cca",
+        "xHex": "8cef65df64bb2d0f83540c53632de911b5b24b3eab6cc74a97609fd659e95473",
+        "yHex": "d7a66f64074a84652d8d623a92e20c9675c61cb5b4f6a0063e4648a2fdc02d53",
+        "pAHex": "04a65b367a3f613cf9f0654b1b28a1e3a8a40387956c8ba6063e8658563890f46ca1ef6a676598889fc28de2950ab8120b79a5ef1ea4c9f44bc98f585634b46d66",
+        "pBHex": "04589f13218822710d98d8b2123a079041052d9941b9cf88c6617ddb2fcc0494662eea8ba6b64692dc318250030c6af045cb738bc81ba35b043c3dcb46adf6f58d",
+        "KHex": "041a3c03d51b452537ca2a1fea6110353c6d5ed483c4f0f86f4492ca3f378d40a994b4477f93c64d928edbbcd3e85a7c709b7ea73ee97986ce3d1438e135543772",
+        "TTHex": "00000000000000000000000000000000410000000000000004a65b367a3f613cf9f0654b1b28a1e3a8a40387956c8ba6063e8658563890f46ca1ef6a676598889fc28de2950ab8120b79a5ef1ea4c9f44bc98f585634b46d66410000000000000004589f13218822710d98d8b2123a079041052d9941b9cf88c6617ddb2fcc0494662eea8ba6b64692dc318250030c6af045cb738bc81ba35b043c3dcb46adf6f58d4100000000000000041a3c03d51b452537ca2a1fea6110353c6d5ed483c4f0f86f4492ca3f378d40a994b4477f93c64d928edbbcd3e85a7c709b7ea73ee97986ce3d1438e13554377220000000000000007bf46c454b4c1b25799527d896508afd5fc62ef4ec59db1efb49113063d70cca",
+        "hashTTHex": "fc6374762ba5cf11f4b2caa08b2cd1b9907ae0e26e8d6234318d91583cd74c86",
+        "KeHex": "fc6374762ba5cf11f4b2caa08b2cd1b9",
+        "KaHex": "907ae0e26e8d6234318d91583cd74c86",
+        "KcAHex": "5dbd2f477166b7fb6d61febbd77a5563",
+        "KcBHex": "7689b4654407a5faeffdc8f18359d8a3",
+        "cAHex": "dfb4db8d48ae5a675963ea5e6c19d98d4ea028d8e898dad96ea19a80ade95dca",
+        "cBHex": "d0f0609d1613138d354f7e95f19fb556bf52d751947241e8c7118df5ef0ae175"
+      }
+    ],
+    "invalidPoints": [
+      {
+        "name": "the point at infinity (SEC1: a single zero byte)",
+        "hex": "00",
+        "error": "bad-point"
+      },
+      {
+        "name": "64 bytes (the last one missing)",
+        "hex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d2",
+        "error": "bad-point"
+      },
+      {
+        "name": "66 bytes (one extra)",
+        "hex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d23800",
+        "error": "bad-point"
+      },
+      {
+        "name": "compressed encoding of a valid point",
+        "hex": "02e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2c",
+        "error": "bad-point"
+      },
+      {
+        "name": "hybrid encoding (prefix 0x06 / 0x07) of a valid point",
+        "hex": "06e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238",
+        "error": "bad-point"
+      },
+      {
+        "name": "not on the curve (last bit of y flipped)",
+        "hex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d239",
+        "error": "bad-point"
+      },
+      {
+        "name": "x = p",
+        "hex": "04ffffffff00000001000000000000000000000000ffffffffffffffffffffffffd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238",
+        "error": "bad-point"
+      },
+      {
+        "name": "y = p",
+        "hex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cffffffff00000001000000000000000000000000ffffffffffffffffffffffff",
+        "error": "bad-point"
+      },
+      {
+        "name": "x = y = 0",
+        "hex": "0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "error": "bad-point"
+      }
+    ]
+  },
+  "pair": {
+    "label": "pocket-pair/1",
+    "maxAttempts": 5,
+    "note": "valid: one complete run per case (both sides agree on K, TT, Ke and the confirmations). invalid: what each side was given and which side must detect the failure (`detectedBy`: newDevice = finishB returns the error, approver = answerA throws it or confirmB returns it); in the bad-confirm cases with detectedBy newDevice, cAHex is what the approver sent and differs from what the new device expects.",
+    "codes": {
+      "format": [
+        {
+          "code": "482913",
+          "display": "482 913"
+        },
+        {
+          "code": "003517",
+          "display": "003 517"
+        },
+        {
+          "code": "000000",
+          "display": "000 000"
+        },
+        {
+          "code": "999999",
+          "display": "999 999"
+        }
+      ],
+      "parse": [
+        {
+          "input": "482913",
+          "code": "482913"
+        },
+        {
+          "input": "482 913",
+          "code": "482913"
+        },
+        {
+          "input": " 482-913 ",
+          "code": "482913"
+        },
+        {
+          "input": "482–913",
+          "code": "482913"
+        },
+        {
+          "input": "482　913",
+          "code": "482913"
+        },
+        {
+          "input": "４８２９１３",
+          "code": "482913"
+        },
+        {
+          "input": "٤٨٢٩١٣",
+          "code": "482913"
+        },
+        {
+          "input": "۴۸۲ ۹۱۳",
+          "code": "482913"
+        },
+        {
+          "input": "४८२९१३",
+          "code": "482913"
+        },
+        {
+          "input": "48291",
+          "code": null
+        },
+        {
+          "input": "4829134",
+          "code": null
+        },
+        {
+          "input": "48291a",
+          "code": null
+        },
+        {
+          "input": "482_913",
+          "code": null
+        },
+        {
+          "input": "482.913",
+          "code": null
+        },
+        {
+          "input": "",
+          "code": null
+        }
+      ]
+    },
+    "valid": [
+      {
+        "name": "a phone approves a computer",
+        "approver": "phoneA",
+        "newDevice": "computerC",
+        "code": "482913",
+        "display": "482 913",
+        "acct": "u_test0001",
+        "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+        "attempt": 1,
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+        "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+        "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+        "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+        "didA": "w1bzP7i5sMuhcmSd",
+        "didB": "ooEBPKJdAOHvYxPS",
+        "idA": "u_test0001/w1bzP7i5sMuhcmSd",
+        "idB": "u_test0001/ooEBPKJdAOHvYxPS",
+        "xHex": "686ca5467e8dec185f5d8ca71919761dfbe2b088571281af4baffc99ff1ece2b",
+        "yHex": "745bf95694e475ed28a81e97d54f5958fd40de3c770e92bfb5b2e128308eed11",
+        "ctxWHex": "706f636b65742d706169722f31000a755f7465737430303031001370645f4871327856396b4c6d4e34705238735401b020c01f2704b64431bcb574a6ce2d9929cee5f7197bb26610d6d3f4bd5ac31b04655eb3193f917ce6303eb55abbff0d8f1231b42937b4b2864985ff353d4b94f769c3529546d0bf27db851395dc75f30ad3e1055ff7ea3a9e90b5455f9af82edf04b05f939875114a3a8dc6326721c9808cbb814fc9e741e7e77efc6a20a881dbb6acbd3630799aa405c26d505de783dfb11c221131ad1ca5d18a899cf6fc9055a3",
+        "ctxHex": "706f636b65742d706169722f31000a755f7465737430303031001370645f4871327856396b4c6d4e34705238735401b020c01f2704b64431bcb574a6ce2d9929cee5f7197bb26610d6d3f4bd5ac31b0492ff423de0d63f2beeaa81f7daa0ad9abd348f5313bc9d7ad0d5d28718cc3fa7cdc0443cc230e20e3fcb43f4e7df140784ec987b6da461e67474b1a6fc4d553e040aae8531b976d860b1e69be5e3ed339b3ff66b51f394df0ea40b380455c72afeecaa2564e5dbb8ca5c5ac0c2f7e85cd65a0e48f79172b80b079fcadb053cb12c04655eb3193f917ce6303eb55abbff0d8f1231b42937b4b2864985ff353d4b94f769c3529546d0bf27db851395dc75f30ad3e1055ff7ea3a9e90b5455f9af82edf04b05f939875114a3a8dc6326721c9808cbb814fc9e741e7e77efc6a20a881dbb6acbd3630799aa405c26d505de783dfb11c221131ad1ca5d18a899cf6fc9055a3",
+        "wHex": "97f04892971a79036473fbdb8555d461e4692d24f397c144933f4134372b2dea",
+        "pAHex": "0457f2832b028eeb4cea2809596f15e108f5b5caad6183eb373f76304b7ba77047726f41cf621d3ff47515099f6c8fa1cecb44c81e6a6a543c46f9fecce962fb4a",
+        "pBHex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238",
+        "KHex": "04040e9006d5c276a62186ecee17188db57cc77a6c6b54e056b9b1149544d96d0552ff2edb550146c13788469ac709c2b5165e8868b4c803dc4c94019d6b3e57c6",
+        "TTHex": "1b00000000000000755f74657374303030312f7731627a50376935734d7568636d53641b00000000000000755f74657374303030312f6f6f4542504b4a64414f48765978505341000000000000000457f2832b028eeb4cea2809596f15e108f5b5caad6183eb373f76304b7ba77047726f41cf621d3ff47515099f6c8fa1cecb44c81e6a6a543c46f9fecce962fb4a410000000000000004e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238410000000000000004040e9006d5c276a62186ecee17188db57cc77a6c6b54e056b9b1149544d96d0552ff2edb550146c13788469ac709c2b5165e8868b4c803dc4c94019d6b3e57c6200000000000000097f04892971a79036473fbdb8555d461e4692d24f397c144933f4134372b2dea",
+        "KeHex": "d1520e78f8216194a6e522b924a8caac",
+        "KaHex": "6724ba0b9bab93de665f4866ccafd687",
+        "KcAHex": "7838b74c5d209aa1ec7458beff63f5d9",
+        "KcBHex": "cd13a46cc9ff9f4c8216cca87bd81dd1",
+        "cAHex": "37613c3bd84b94d0d7f35d1465aa5ad173d2306890bc87ddacb65fa3f04b7656",
+        "cBHex": "36084957b571001111d56c7200d1dc9ef22dce986f496b43344ad3657d3b09b7"
+      },
+      {
+        "name": "a computer approves a phone; the code starts with zeros",
+        "approver": "computerC",
+        "newDevice": "phoneB",
+        "code": "003517",
+        "display": "003 517",
+        "acct": "u_test0001",
+        "pendingId": "pd_Qw3eR5tY7uI9oP1a",
+        "attempt": 2,
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "sigA": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+        "kxA": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+        "sigB": "BN49QqXVfI5aY1IAuBW_pe3nD5s42e2V6WeXtq-B74Oy8pO7rxH9JVQaispIqTM4mrvdsuCQrxqmV7E-IGXcyKE",
+        "kxB": "BBBkPxYkprxafXoJal_NPs3zhhU2CcDaUq_191ODCWwgxCZ3onrheXljuvnVvv3z-yrJZEnQi3b6n6elkIL76uo",
+        "didA": "ooEBPKJdAOHvYxPS",
+        "didB": "VI0ngEbQISu3XrZX",
+        "idA": "u_test0001/ooEBPKJdAOHvYxPS",
+        "idB": "u_test0001/VI0ngEbQISu3XrZX",
+        "xHex": "d72460e451c75bf872d3a77aeb676d34e319b4ad329e21585e6bdf2965371080",
+        "yHex": "ae8b7468d909ff6a4950f9ed86a2ca5d2f3f7cb732484edbff2b563df1cc7810",
+        "ctxWHex": "706f636b65742d706169722f31000a755f7465737430303031001370645f5177336552357459377549396f50316102b020c01f2704b64431bcb574a6ce2d9929cee5f7197bb26610d6d3f4bd5ac31b04de3d42a5d57c8e5a635200b815bfa5ede70f9b38d9ed95e96797b6af81ef83b2f293bbaf11fd25541a8aca48a933389abbddb2e090af1aa657b13e2065dcc8a10410643f1624a6bc5a7d7a096a5fcd3ecdf386153609c0da52aff5f75383096c20c42677a27ae1797963baf9d5befdf3fb2ac96449d08b76fa9fa7a59082fbeaea",
+        "ctxHex": "706f636b65742d706169722f31000a755f7465737430303031001370645f5177336552357459377549396f50316102b020c01f2704b64431bcb574a6ce2d9929cee5f7197bb26610d6d3f4bd5ac31b04655eb3193f917ce6303eb55abbff0d8f1231b42937b4b2864985ff353d4b94f769c3529546d0bf27db851395dc75f30ad3e1055ff7ea3a9e90b5455f9af82edf04b05f939875114a3a8dc6326721c9808cbb814fc9e741e7e77efc6a20a881dbb6acbd3630799aa405c26d505de783dfb11c221131ad1ca5d18a899cf6fc9055a304de3d42a5d57c8e5a635200b815bfa5ede70f9b38d9ed95e96797b6af81ef83b2f293bbaf11fd25541a8aca48a933389abbddb2e090af1aa657b13e2065dcc8a10410643f1624a6bc5a7d7a096a5fcd3ecdf386153609c0da52aff5f75383096c20c42677a27ae1797963baf9d5befdf3fb2ac96449d08b76fa9fa7a59082fbeaea",
+        "wHex": "18fec8ccdfebad1c72c4aa26c453398738543ab065ba468da753974c8b990876",
+        "pAHex": "04095404d40e417bd668ca365255013b9c9816bc77f52e5d269567043d35fd68540d4abf1c08a6b1b6dec12c68eb7438f729544239f57a5af5f3468d1e07b7fa2a",
+        "pBHex": "0452596cb83a051b8b9c350a1066d2ee7555fc7ab44bef23b8ba08d93faae9fa1c76bde54fe9c82dece020bfd2dc940605ee1f3ab2a909e89a07c4ef69694bcd7c",
+        "KHex": "04c2a721d3bbdc177e68f696de2f29e5098a385bb72f6d0d209cd2462c59a46872db6e01bb54c412517323cc0911fea280898cf53d70698ddf4fef911a7efc545f",
+        "TTHex": "1b00000000000000755f74657374303030312f6f6f4542504b4a64414f4876597850531b00000000000000755f74657374303030312f5649306e674562514953753358725a58410000000000000004095404d40e417bd668ca365255013b9c9816bc77f52e5d269567043d35fd68540d4abf1c08a6b1b6dec12c68eb7438f729544239f57a5af5f3468d1e07b7fa2a41000000000000000452596cb83a051b8b9c350a1066d2ee7555fc7ab44bef23b8ba08d93faae9fa1c76bde54fe9c82dece020bfd2dc940605ee1f3ab2a909e89a07c4ef69694bcd7c410000000000000004c2a721d3bbdc177e68f696de2f29e5098a385bb72f6d0d209cd2462c59a46872db6e01bb54c412517323cc0911fea280898cf53d70698ddf4fef911a7efc545f200000000000000018fec8ccdfebad1c72c4aa26c453398738543ab065ba468da753974c8b990876",
+        "KeHex": "d1b02e58efa68baadc51543f15cc929a",
+        "KaHex": "c1393b68a3e1da6cb4e0a3aeeda52782",
+        "KcAHex": "092791dd1546108b851be9a60cb3bf33",
+        "KcBHex": "0a66e2f5cc04b62af1f953d157fd1084",
+        "cAHex": "9511dbed4732feffda031e31f54ac880f16a5ef7644ce0759b91769686da5998",
+        "cBHex": "15dcff8bf01cebb4dc0ce4a04b796b4e54ff5232fc2904d83cdaf6ef8dc9c69d"
+      },
+      {
+        "name": "the fifth and last attempt",
+        "approver": "phoneA",
+        "newDevice": "computerD",
+        "code": "999999",
+        "display": "999 999",
+        "acct": "u_test0001",
+        "pendingId": "pd_Zx8cV6bN4mL2kJ0h",
+        "attempt": 5,
+        "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+        "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+        "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+        "sigB": "BNFgEZFpwtWuYRg3-0LWmvAIjHgyqquDH-8Nd7jV5JFGnL6VchUN47kzAN5ed6AkphdHrKkaE5uyTyyJxz0kIrU",
+        "kxB": "BJsKl7ltTuiRUq8Zq447W_fnk_aKSMg1WYWzfbUqofNjOZm0oOrvah5lgInasGyLxCGOoxha_12P-kzIGqB4AaE",
+        "didA": "w1bzP7i5sMuhcmSd",
+        "didB": "kDmP6N40pmf2Vk_u",
+        "idA": "u_test0001/w1bzP7i5sMuhcmSd",
+        "idB": "u_test0001/kDmP6N40pmf2Vk_u",
+        "xHex": "b5ce7bd782a1149ce6375ed8f3124b65824707f35c4f5e5cec097cb20b9f6b0f",
+        "yHex": "4d69af6e84c8e0b9a793598678d9cce310e42ee83c902094516f6c250674d3b1",
+        "ctxWHex": "706f636b65742d706169722f31000a755f7465737430303031001370645f5a7838635636624e346d4c326b4a306805b020c01f2704b64431bcb574a6ce2d9929cee5f7197bb26610d6d3f4bd5ac31b04d160119169c2d5ae611837fb42d69af0088c7832aaab831fef0d77b8d5e491469cbe9572150de3b93300de5e77a024a61747aca91a139bb24f2c89c73d2422b5049b0a97b96d4ee89152af19ab8e3b5bf7e793f68a48c8355985b37db52aa1f3633999b4a0eaef6a1e658089dab06c8bc4218ea3185aff5d8ffa4cc81aa07801a1",
+        "ctxHex": "706f636b65742d706169722f31000a755f7465737430303031001370645f5a7838635636624e346d4c326b4a306805b020c01f2704b64431bcb574a6ce2d9929cee5f7197bb26610d6d3f4bd5ac31b0492ff423de0d63f2beeaa81f7daa0ad9abd348f5313bc9d7ad0d5d28718cc3fa7cdc0443cc230e20e3fcb43f4e7df140784ec987b6da461e67474b1a6fc4d553e040aae8531b976d860b1e69be5e3ed339b3ff66b51f394df0ea40b380455c72afeecaa2564e5dbb8ca5c5ac0c2f7e85cd65a0e48f79172b80b079fcadb053cb12c04d160119169c2d5ae611837fb42d69af0088c7832aaab831fef0d77b8d5e491469cbe9572150de3b93300de5e77a024a61747aca91a139bb24f2c89c73d2422b5049b0a97b96d4ee89152af19ab8e3b5bf7e793f68a48c8355985b37db52aa1f3633999b4a0eaef6a1e658089dab06c8bc4218ea3185aff5d8ffa4cc81aa07801a1",
+        "wHex": "7b3102446e266060f9495754ec1135fc80dd63c58ce9a41105eb1f8a615ef14c",
+        "pAHex": "04bbf6cac7086a8baeed8792c716b72c41b022f33d1a3262d3f1ba22a0545d687d1f3c814a29ac0b76adb788d73020738d09f1ccad599e2027c85407d0db580433",
+        "pBHex": "04395c18b4ae4ad0ab3f47d8744bfe589f51264b099f3ad090433994cc38b8786e842a343ac49b376ac953d30bfd5c40e3068df222302c9d3fea7d1f3c47724405",
+        "KHex": "044f4f3bb09e69a47482dfbbb73f79a27d2d406c8716db578d9e796bfeb5852514ebe573c828da15a53b5952f627e2693fc4201986c0accdec8bf29ea9381db933",
+        "TTHex": "1b00000000000000755f74657374303030312f7731627a50376935734d7568636d53641b00000000000000755f74657374303030312f6b446d50364e3430706d6632566b5f75410000000000000004bbf6cac7086a8baeed8792c716b72c41b022f33d1a3262d3f1ba22a0545d687d1f3c814a29ac0b76adb788d73020738d09f1ccad599e2027c85407d0db580433410000000000000004395c18b4ae4ad0ab3f47d8744bfe589f51264b099f3ad090433994cc38b8786e842a343ac49b376ac953d30bfd5c40e3068df222302c9d3fea7d1f3c477244054100000000000000044f4f3bb09e69a47482dfbbb73f79a27d2d406c8716db578d9e796bfeb5852514ebe573c828da15a53b5952f627e2693fc4201986c0accdec8bf29ea9381db93320000000000000007b3102446e266060f9495754ec1135fc80dd63c58ce9a41105eb1f8a615ef14c",
+        "KeHex": "cd6e3faf6ccb2de82df9575750368d76",
+        "KaHex": "07c2a969377704cf3af298c5e3eb090f",
+        "KcAHex": "f68823ae0acda1ef27d36ac4da56ff6c",
+        "KcBHex": "cbc8f44ee43295f8218fc9c849957bbd",
+        "cAHex": "e327919e3e6e9e8fa9ddc62e64e7b284ee83a625b2af3cd57a5ff3bd277e5aa9",
+        "cBHex": "d4a4af38a5f0865f3478a7b8655ec7104163914f6bf2bef11afd975d554e7ec2"
+      }
+    ],
+    "invalid": [
+      {
+        "name": "the approver typed a wrong code (two digits swapped)",
+        "error": "bad-confirm",
+        "detectedBy": "newDevice",
+        "newDevice": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "yHex": "745bf95694e475ed28a81e97d54f5958fd40de3c770e92bfb5b2e128308eed11"
+        },
+        "approver": {
+          "code": "482931",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "xHex": "686ca5467e8dec185f5d8ca71919761dfbe2b088571281af4baffc99ff1ece2b"
+        },
+        "pBHex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238",
+        "pAHex": "04b44b7de97214f9ef80e602bf4a76cd235d4835c4b44d2f5badee6bf102f13bdf197f58d92991efc9a5556a96b593c1ea8c43dc882bbb2095db37edfd2004a756",
+        "cAHex": "a3c174957773c76059cfebf316bd380d9206b51edb49421ffce28dfad6096e5c"
+      },
+      {
+        "name": "the new device was shown another lock (another genesis)",
+        "error": "bad-confirm",
+        "detectedBy": "newDevice",
+        "newDevice": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "JjkQ9qprBvu8WE9EbqfcDi-xCa7lzp6r3tZU1zhzrZY",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "yHex": "745bf95694e475ed28a81e97d54f5958fd40de3c770e92bfb5b2e128308eed11"
+        },
+        "approver": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "xHex": "686ca5467e8dec185f5d8ca71919761dfbe2b088571281af4baffc99ff1ece2b"
+        },
+        "pBHex": "0411de2da94bb2dc9e3ca4019b0645db99bd50d7fcafe3431f82fc860e5499e0d64a27b2b253ddf1839328a4713678bcd28947009a1f435be1fad61f1fcd7c1dd3",
+        "pAHex": "0457f2832b028eeb4cea2809596f15e108f5b5caad6183eb373f76304b7ba77047726f41cf621d3ff47515099f6c8fa1cecb44c81e6a6a543c46f9fecce962fb4a",
+        "cAHex": "4a90ba91aad5c6ab7b45bf7e3642c12b9f7fd4d4e94aa2d414c45d039dfc5a32"
+      },
+      {
+        "name": "the new device was told another admin device answered",
+        "error": "bad-confirm",
+        "detectedBy": "newDevice",
+        "newDevice": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BNFgEZFpwtWuYRg3-0LWmvAIjHgyqquDH-8Nd7jV5JFGnL6VchUN47kzAN5ed6AkphdHrKkaE5uyTyyJxz0kIrU",
+          "kxA": "BJsKl7ltTuiRUq8Zq447W_fnk_aKSMg1WYWzfbUqofNjOZm0oOrvah5lgInasGyLxCGOoxha_12P-kzIGqB4AaE",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "yHex": "745bf95694e475ed28a81e97d54f5958fd40de3c770e92bfb5b2e128308eed11"
+        },
+        "approver": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "xHex": "686ca5467e8dec185f5d8ca71919761dfbe2b088571281af4baffc99ff1ece2b"
+        },
+        "pBHex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238",
+        "pAHex": "0457f2832b028eeb4cea2809596f15e108f5b5caad6183eb373f76304b7ba77047726f41cf621d3ff47515099f6c8fa1cecb44c81e6a6a543c46f9fecce962fb4a",
+        "cAHex": "37613c3bd84b94d0d7f35d1465aa5ad173d2306890bc87ddacb65fa3f04b7656"
+      },
+      {
+        "name": "the approver was shown someone else's keys for the new device",
+        "error": "bad-confirm",
+        "detectedBy": "newDevice",
+        "newDevice": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "yHex": "745bf95694e475ed28a81e97d54f5958fd40de3c770e92bfb5b2e128308eed11"
+        },
+        "approver": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BD3gUyqWnuM2Onjs0IIvUlnIMEM9tJ78wi_O41QALeUiGYC2oLQ9bDFvYBaXB1cpUR-hvrzFTxClzKoyv3n1bHM",
+          "kxB": "BNvcWqhTkScfJdYRP1uZtHnqpSj83XYuB5FJ3HWM__9eqLzTFYe0Dzjes69sol8_e97yVGrIzM8ZXXp-M2IeWHI",
+          "xHex": "686ca5467e8dec185f5d8ca71919761dfbe2b088571281af4baffc99ff1ece2b"
+        },
+        "pBHex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238",
+        "pAHex": "0423276f489b29d4f09cb7c7a14c4ebfaf72779f9331705a3bd8c5c194dd2f52e821685e91ccf522318d0fdf5f74f14983ff8202a7b32e9ed0d324d74972ec86b9",
+        "cAHex": "8c7a4f6b7827e7deb2edbc5f13437a7ea6c5e004dccd03b5baf576244a8b6e5c"
+      },
+      {
+        "name": "the two devices use different pending entries",
+        "error": "bad-confirm",
+        "detectedBy": "newDevice",
+        "newDevice": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "yHex": "745bf95694e475ed28a81e97d54f5958fd40de3c770e92bfb5b2e128308eed11"
+        },
+        "approver": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_AnotherEntry0001",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "xHex": "686ca5467e8dec185f5d8ca71919761dfbe2b088571281af4baffc99ff1ece2b"
+        },
+        "pBHex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238",
+        "pAHex": "04b5211e73a233f942d9a9936b73583a757484fb939693b9bc777eb156f9787313dede48c5e587e249a8616a2a082fd55bb2c8b0cc067733863ca9ce07879ba68b",
+        "cAHex": "fd6ec523bd0874a9dcd66ccd52937e61e0d5221a372ab982b54c7a0ee62444da"
+      },
+      {
+        "name": "the two devices count the attempt differently",
+        "error": "bad-confirm",
+        "detectedBy": "newDevice",
+        "newDevice": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "yHex": "745bf95694e475ed28a81e97d54f5958fd40de3c770e92bfb5b2e128308eed11"
+        },
+        "approver": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 2,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "xHex": "686ca5467e8dec185f5d8ca71919761dfbe2b088571281af4baffc99ff1ece2b"
+        },
+        "pBHex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238",
+        "pAHex": "040bc5051d12e2c5714c3141b3aa0d08a59321ed998b9e6fe54981731d4064d5610d4addbc361f2515ee30734708f20d0a464370f0f1ca4b967c6dfa109192acf8",
+        "cAHex": "1af96ec78a1d81d4e1e3e6a89db491f0d9c182f0ac4f818183f6f0289a47f03e"
+      },
+      {
+        "name": "the new device's confirmation was modified on the way",
+        "error": "bad-confirm",
+        "detectedBy": "approver",
+        "newDevice": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "yHex": "745bf95694e475ed28a81e97d54f5958fd40de3c770e92bfb5b2e128308eed11"
+        },
+        "approver": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "xHex": "686ca5467e8dec185f5d8ca71919761dfbe2b088571281af4baffc99ff1ece2b"
+        },
+        "pBHex": "04e127e32d3d237de6cfac26ae5e03f14d8636df1178772700d8f96b2f17dfae2cd80e3bcdf4ca6b76b127e1beb4f2ad8d7b122452441aee4352cc72de21b0d238",
+        "pAHex": "0457f2832b028eeb4cea2809596f15e108f5b5caad6183eb373f76304b7ba77047726f41cf621d3ff47515099f6c8fa1cecb44c81e6a6a543c46f9fecce962fb4a",
+        "cAHex": "37613c3bd84b94d0d7f35d1465aa5ad173d2306890bc87ddacb65fa3f04b7656",
+        "cBHex": "36084957b571001111d56c7200d1dc9ef22dce986f496b43344ad3657d3b09b6"
+      },
+      {
+        "name": "pB = w·N: the approver's K would be the point at infinity",
+        "error": "bad-point",
+        "detectedBy": "approver",
+        "approver": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "xHex": "686ca5467e8dec185f5d8ca71919761dfbe2b088571281af4baffc99ff1ece2b"
+        },
+        "pBHex": "04a2aa07e21c9f1038709aeb1f1f80f0e8764bef47945635da568b139e3213cef4128a166a35f9362761056f00c6ed1dd1262e87c062b3d2a903bdf33b5c46799c"
+      },
+      {
+        "name": "pA = w·M: the new device's K would be the point at infinity",
+        "error": "bad-point",
+        "detectedBy": "newDevice",
+        "newDevice": {
+          "code": "482913",
+          "acct": "u_test0001",
+          "pendingId": "pd_Hq2xV9kLmN4pR8sT",
+          "attempt": 1,
+          "genesis": "sCDAHycEtkQxvLV0ps4tmSnO5fcZe7JmENbT9L1awxs",
+          "sigA": "BJL_Qj3g1j8r7qqB99qgrZq9NI9TE7ydetDV0ocYzD-nzcBEPMIw4g4_y0P0598UB4TsmHttpGHmdHSxpvxNVT4",
+          "kxA": "BAquhTG5dthgseab5ePtM5s_9mtR85TfDqQLOARVxyr-7KolZOXbuMpcWsDC9-hc1loOSPeRcrgLB5_K2wU8sSw",
+          "sigB": "BGVesxk_kXzmMD61Wrv_DY8SMbQpN7SyhkmF_zU9S5T3acNSlUbQvyfbhROV3HXzCtPhBV_36jqekLVFX5r4Lt8",
+          "kxB": "BLBfk5h1EUo6jcYyZyHJgIy7gU_J50Hn5378aiCogdu2rL02MHmapAXCbVBd54PfsRwiETGtHKXRiomc9vyQVaM",
+          "yHex": "745bf95694e475ed28a81e97d54f5958fd40de3c770e92bfb5b2e128308eed11"
+        },
+        "pAHex": "040f5c5b090e1ae93dfe72c85733b1051c8433ea8459ea2aa28babbf77c9df2da71f781dd954926b446a1ce09cfefa7ebb6ccd709bf74a5dae67a620859bafd8a9",
+        "cAHex": "0000000000000000000000000000000000000000000000000000000000000000"
       }
     ]
   },
