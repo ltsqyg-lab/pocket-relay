@@ -229,7 +229,8 @@ test('§5-13 malformed input: WebSocket frames, HTTP paths and bodies never cras
     { t: 'ping', ts: 'x' }, { t: 'renew' }, { t: '__proto__' }, { t: 'constructor' }, { t: null }, {},
   ]
   for (const j of junk) Mc.ws.send(j)
-  Mc.ws.send(JSON.stringify({ t: 'ping', ts: 1, nested: JSON.parse('['.repeat(5000) + ']'.repeat(5000)) }))
+  // 直接拼字符串:JSON.stringify 递归,5000 层在 Linux 的默认栈上会先把测试自己撑爆(2026-10-10 在 Ubuntu 上撞到),帧根本发不出去
+  Mc.ws.send('{"t":"ping","ts":1,"nested":' + '['.repeat(5000) + ']'.repeat(5000) + '}')
   await sleep(300)
   assert.equal(Mc.ws.closeCode, null, 'shapes are answered, the socket stays')
   Mc.ws.send({ t: 'ping', ts: 7 })

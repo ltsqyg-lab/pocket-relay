@@ -178,7 +178,9 @@ test('openssl reads it the same way', { skip: !hasOpenssl && 'no openssl command
     const text = execFileSync('openssl', ['x509', '-in', f, '-noout', '-text'], { encoding: 'utf8' })
     for (const want of ['Version: 3 (0x2)', 'Signature Algorithm: ecdsa-with-SHA256', `Subject: CN=${host === 'relay.example.com' ? host : host.replace('2001:db8::1', '2001:db8::1')}`,
       'X509v3 Basic Constraints: critical', 'CA:FALSE', 'X509v3 Key Usage: critical', 'Digital Signature', 'TLS Web Server Authentication', sanText]) {
-      assert.ok(text.replace(/\s+/g, ' ').includes(want.replace(/\s+/g, ' ')), `openssl output has ${want}\n${text}`)
+      // OpenSSL 3 写「CN = x」,LibreSSL 写「CN=x」:比之前把等号两边的空格去掉
+      const norm = (s) => s.replace(/\s+/g, ' ').replace(/ ?= ?/g, '=')
+      assert.ok(norm(text).includes(norm(want)), `openssl output has ${want}\n${text}`)
     }
     const fp = execFileSync('openssl', ['x509', '-in', f, '-noout', '-fingerprint', '-sha256'], { encoding: 'utf8' })
     assert.equal('sha256:' + fp.split('=')[1].trim().replace(/:/g, '').toLowerCase(), m.pin)
