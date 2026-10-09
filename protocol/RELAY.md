@@ -345,7 +345,7 @@ A server with a public IP address; 1 vCPU / 1 GB RAM is enough for one person. N
    It makes a self-signed certificate for its public address and prints one line (also in `dataDir/connect.txt`):
    `pocket-relay://203.0.113.7:8443?pin=sha256:<hex>&claim=<code>` — §12.1.
 2. Open that TCP port in the firewall / security group.
-3. In the Pocket App: Devices → Relay → Add your own relay → paste the line. Coordination registers the relay for the
+3. In the Pocket app: Settings → Relay → Add your own relay, then paste the line. Coordination registers the relay for the
    account (a new relay id `r_…`), connects to it with TLS pinned to `pin`, and claims it (`POST /v1/claim`). The relay
    then serves that account only.
 4. Switching relays: computers re-upload their sessions to the new relay automatically; phones re-download. The old
@@ -396,7 +396,7 @@ pocket-relay://<host>:<port>[?pin=sha256:<hex>][&claim=<code>]
 - `claim`: 32 random bytes, base64url without padding (43 characters); present only while the relay is unclaimed.
 - `pin` and `claim` appear at most once; clients ignore parameters they do not know (later additions). No user name,
   no fragment.
-- The relay prints the line on standard output with "In the Pocket App: Devices → Relay → Add your own relay, paste this
+- The relay prints the line on standard output with "In the Pocket app: Settings → Relay → Add your own relay, then paste this
   line" in English and Chinese and a reminder to open the TCP port, and writes it to `dataDir/connect.txt` (0600).
 
 **Unclaimed state.** No `relayId`/`account` in the configuration and no `dataDir/binding.json`: the relay keeps a claim

@@ -1,7 +1,7 @@
 # Pocket relay — zero dependencies, Node.js 22.
 #   docker build -t pocket-relay .
 #   docker run -d --name pocket-relay --restart unless-stopped -p 8443:8443 -v pocket-relay:/var/lib/pocket-relay pocket-relay
-#   docker logs pocket-relay       # the line to paste into the Pocket App: Devices → Relay → Add your own relay
+#   docker logs pocket-relay       # the line to paste into the Pocket app: Settings → Relay → Add your own relay
 # No configuration needed: the relay makes its own certificate and asks the coordination server for this server's
 # public IP. Settings: RELAY_* environment variables (e.g. -e RELAY_PUBLIC_URL=https://203.0.113.7:8443) or a file
 # mounted at /etc/pocket-relay/relay.json (see relay.example.json). The volume keeps the certificate, the claim and

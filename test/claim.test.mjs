@@ -62,7 +62,7 @@ test('unclaimed: self-signed certificate for the address coordination reports, t
   assert.equal(c.claim, JSON.parse(fs.readFileSync(F.claim, 'utf8')).claim)
   assert.equal(line, `pocket-relay://127.0.0.1:${r.port}?pin=${r.pin}&claim=${c.claim}`)
   const out = r.printed.join('')
-  for (const want of [line, 'In the Pocket App: Devices → Relay → Add your own relay, paste this line', '在 Pocket App:设备 → 中继 → 添加自建中继,粘贴这一行',
+  for (const want of [line, 'In the Pocket app: Settings → Relay → Add your own relay, then paste this line', '在 Pocket App:我的 → 中继 → 添加自建中继,粘贴这一行',
     `TCP port ${r.port}`, `TCP ${r.port} 端口`, 'connect-string']) assert.ok(out.includes(want), `output has ${want}`)
   // what answers
   let x = await P(r, '/.well-known/pocket-relay')

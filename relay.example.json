@@ -1,6 +1,6 @@
 {
   // Most relays need no configuration file: start it, and paste the line it prints into the Pocket App
-  // (Devices → Relay → Add your own relay). This file lists the settings with their defaults; keep only what you change.
+  // (Settings → Relay → Add your own relay). This file lists the settings with their defaults; keep only what you change.
   // Every value can also come from an environment variable: publicUrl → RELAY_PUBLIC_URL, listen.port → RELAY_LISTEN_PORT…
   // Nothing here is secret. S3 keys (if any) come from the environment variables named below.
 

@@ -153,6 +153,15 @@ the gateway is AGPL-3.0), because the closed-source desktop agent embeds it verb
 It writes the WAV to a private temporary file (directory 0700, random name), runs the program with an argument array
 (no shell), reads stdout, deletes the file in `finally`, kills the process on timeout or abort, and returns plain text
 (trimmed, engine markers removed). Models are files the operator installs; the module only checks they exist.
+SenseVoice is told `zh` only for `zh`, otherwise `auto` (never `en`: Chinese speech then comes out as nonsense).
+**Windows** (revision 3, 2026-10-09): the program is started through `cmd.exe /d /v:off /s /c` with every argument
+quoted — a bun-compiled parent (the desktop agent) that starts it directly waits ~3.4 s before it runs and it then
+decodes ~2.5× slower (5.1–5.5 s instead of 1.3 s for a 7.6 s clip). An argument cmd.exe would still interpret (`"`, `%`),
+a trailing backslash, a control character or a UNC working directory means a direct start instead. If the cmd.exe
+start fails, or ends non-zero without a result, the program is started once more directly (same arguments, directory
+and time limit; never after a timeout or an abort); a timeout kills the whole tree (`taskkill /T /F`). When a path has
+non-ASCII characters (sherpa-onnx 1.13.8 cannot open those, 8.3 short names included — e.g. `C:\Users\张三`), the program
+runs in the deepest directory holding all its files and gets ASCII relative paths.
 
 ## 6. Configuration
 Optional: every key has a default, and with no file at all the gateway runs as in §11.1.

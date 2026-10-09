@@ -294,10 +294,10 @@ Vectors: `sas` (indices and both renderings).
 - Both screens show the same list: the language in the enrollment request (`sasLang`: `en` or `zh`), chosen by the
   new device from its UI language. English: lowercase words separated by spaces. Chinese: six characters separated by
   spaces (`运 睡 措 宗 煮 池`). Show index-free, large, in two rows of three.
-- Wording (zh / en): 「两台设备上的 6 个字一样吗?」 / "Do both screens show the same 6 words?" — buttons
-  「一样,允许」 / "They match — allow" and 「不一样」 / "They don't match". Plus one line: "These words are not a password
-  and are not a recovery phrase; you never need to write them down." The approval screen also says: "If you did not just
-  sign in on a new device, don't allow it and change your password" (someone who knows the password can create a
+- Wording (zh / en; short, 2026-10-09): 「两台设备上的 6 个字一样吗?」 / "Do both screens show the same 6 words?",
+  buttons 「一样,允许」 / "Yes, allow" and 「不一样」 / "They don't match". Plus one line: 「不用记下这 6 个字。」 /
+  "You don't need to write these down." The approval screen also warns that if the user did not just sign in on a new
+  device, they should not allow it and should change their password (someone who knows the password can create a
   pending device; only an approval lets it in).
 - A device's words stay valid for its lifetime: the device list shows them for every device (any device can recompute
   `words(G, sig, kx)`), so a later comparison is always possible.

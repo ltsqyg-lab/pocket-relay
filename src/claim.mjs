@@ -246,8 +246,8 @@ export function connectBlock(info, { file = null, claimed = false } = {}) {
   const out = [bar]
   if (!info.bound) {
     out.push('Pocket relay: ready to be added (not claimed yet).',
-      'In the Pocket App: Devices → Relay → Add your own relay, paste this line:',
-      '在 Pocket App:设备 → 中继 → 添加自建中继,粘贴这一行:')
+      'In the Pocket app: Settings → Relay → Add your own relay, then paste this line:',
+      '在 Pocket App:我的 → 中继 → 添加自建中继,粘贴这一行:')
   } else {
     out.push(claimed ? `Pocket relay: claimed (relay ${info.bound.relayId}). 已认领。` : `Pocket relay: relay ${info.bound.relayId}.`,
       'Connection line (no claim code: this relay is already claimed):', '连接串(已认领,不带认领码):')
