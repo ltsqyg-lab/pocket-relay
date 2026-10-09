@@ -634,6 +634,7 @@ human-readable text in the reply. `BlobRef` is defined in §11.4.
 | rpc | `lock` | `statements` [signed documents] (a phone pushes a revocation or policy directly, §5.5) | `ok`, `head` |
 | res | `result` | as listed per request; `late: true` if sent after the phone's timeout | — |
 | evt | `notify` | `kind: "session_end"`, `sessionId`, `state`, `title`, `body`, `host`, `agent` | — |
+| evt | `voice-text` | `dispatchId`, `text` (≤ 4000 chars): what the computer recognized for a `voice` command, sent to the phone that asked as soon as recognition finishes, before the dispatch result. The phone shows it in the pending bubble and accepts it only from the computer it sent the command to, for that `dispatchId`. Clients that do not know it ignore it | — |
 | evt | `lock` | `statements` [signed documents] (gossip, §5.5) | — |
 
 Unknown `op` in a `cmd`/`rpc`: reply `ok: false, code: "unknown-op"`. Unknown `op` in `evt`/`res`: ignore.
