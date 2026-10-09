@@ -83,9 +83,11 @@ export function proof(dev, ticket, nonce, { relay = 'hk1', ts = Date.now() } = {
 /**
  * Start a relay on 127.0.0.1:0 with a temp data dir (or `dir`). Plain HTTP unless `tls` is given (the default
  * configuration would make a self-signed certificate). Returns {relay, base, pin, logs, printed, dir, cfg, stop}; with
- * TLS, `base` is https:// and requests must go through pinnedRequest / wsConnect with `pin`.
+ * TLS, `base` is https:// and requests must go through pinnedRequest / wsConnect with `pin`. The free-space minimum
+ * (disk.minFreeMB) is off unless a test sets it, so the suite does not depend on the machine's disk; `statfs` fakes
+ * the disk for the tests that do.
  */
-export async function startRelay(coord, overIn = {}, { fetchImpl, env, dir: dirIn, keep = false, bindingPollMs, whoamiRetryMs } = {}) {
+export async function startRelay(coord, overIn = {}, { fetchImpl, env, dir: dirIn, keep = false, bindingPollMs, whoamiRetryMs, statfs } = {}) {
   const { now: nowFn, ...over } = overIn
   const dir = dirIn ?? fs.mkdtempSync(path.join(os.tmpdir(), 'pocket-relay-test-'))
   const logs = [], printed = []
@@ -94,10 +96,11 @@ export async function startRelay(coord, overIn = {}, { fetchImpl, env, dir: dirI
     coord: { url: null, pinnedKeys: coord.pinned },
     tls: null,
     ...over,
+    disk: { minFreeMB: 0, ...(over.disk ?? {}) },
     limits: { presenceDebounceMs: 150, ...(over.limits ?? {}) },
   })
   const log = { info: (op, f) => logs.push(JSON.stringify({ op, ...f })), warn: (op, f) => logs.push(JSON.stringify({ op, ...f })), error: (op, f) => logs.push(JSON.stringify({ op, ...f })) }
-  const relay = await createRelay(cfg, { log, fetchImpl, env, now: nowFn, print: (text) => printed.push(text), bindingPollMs, whoamiRetryMs })
+  const relay = await createRelay(cfg, { log, fetchImpl, env, now: nowFn, print: (text) => printed.push(text), bindingPollMs, whoamiRetryMs, statfs })
   const a = await relay.listen(0, '127.0.0.1')
   const base = `${cfg.tlsMode === 'off' ? 'http' : 'https'}://127.0.0.1:${a.port}`
   return {

@@ -101,6 +101,8 @@ test('blobs in S3: presigned upload, commit checks size and header, 302 download
   assert.equal(resv.method, 'PUT')
   assert.equal(resv.headers['Content-Length'], String(b.ct.length))
   assert.ok(resv.url.startsWith(`${s3.url}/hkb/p/${mac.addr}/${b.idS}?`), '127.0.0.1 is not in the cn list → default bucket')
+  assert.match(resv.url, /X-Amz-Expires=900(&|$)/, 'the presigned PUT lives 15 minutes')
+  assert.ok(resv.expires > Date.now() + 14 * 60_000 && resv.expires <= Date.now() + 15 * 60_000)
   assert.ok(!r.logs.join('\n').includes('X-Amz-Signature'), 'presigned URLs are not logged')
   // commit before uploading
   res = await P.post(`${base}/${b.idS}/commit`, { bytes: b.ct.length })
@@ -144,23 +146,30 @@ test('blobs in S3: presigned upload, commit checks size and header, 302 download
   await tfetch(re.url, { method: 'PUT', body: forged.ct, headers: re.headers })
   res = await P.post(`${base}/${e.idS}/commit`, { bytes: e.ct.length })
   assert.equal((await res.json()).error, 'bad-blob')
-  // falling back to a direct PUT on a presigned reservation stores on disk
+  // with the bucket up, the relay's disk takes nothing: not a direct PUT on a presigned reservation, not one without
+  // any reservation (both used to be stored on disk on the spot)
   const f = blob(300)
   await P.post(`${base}/${f.idS}/upload`, { bytes: f.ct.length })
-  assert.equal((await P.put(`${base}/${f.idS}`, f.ct)).status, 200)
-  res = await M.get(`${base}/${f.idS}`)
-  assert.equal(res.status, 200, 'served from disk')
+  assert.equal((await P.put(`${base}/${f.idS}`, f.ct)).status, 403)
+  const f2 = blob(300)
+  assert.equal((await P.put(`${base}/${f2.idS}`, f2.ct)).status, 403)
+  assert.equal(r.relay.store.get('blobGet', mac.addr, f2.idS), undefined, 'not reserved on the spot either')
+  assert.ok(!fs.existsSync(path.join(r.dir, 'b', mac.addr)) || fs.readdirSync(path.join(r.dir, 'b', mac.addr)).length === 0, 'nothing on disk')
 
   // the cn-ip rule picks the other bucket for addresses on the list
   assert.equal(r.relay.blobs.pick('10.1.2.3').name, 'cn')
   assert.equal(r.relay.blobs.pick('8.8.8.8').name, 'intl')
-  // bucket down at reservation time → direct (disk)
+  // bucket down at reservation time → direct: that reservation may be filled on disk, and is served from there
   s3.state.down = true
   await r.relay.blobs.probe()
   const g = blob(64)
   assert.deepEqual(await (await P.post(`${base}/${g.idS}/upload`, { bytes: g.ct.length })).json(), { mode: 'direct' })
   s3.state.down = false
   await r.relay.blobs.probe()
+  assert.equal((await P.put(`${base}/${g.idS}`, g.ct)).status, 200, 'the bucket is back, the direct reservation still counts')
+  res = await M.get(`${base}/${g.idS}`)
+  assert.equal(res.status, 200, 'served from disk')
+  assert.deepEqual(Buffer.from(await res.arrayBuffer()), g.ct)
 
   // delete removes the bucket object
   assert.equal((await M.del(`${base}/${b.idS}`)).status, 200)
@@ -176,7 +185,7 @@ test('quotas: per day and per month in the configured time zone, from the ticket
   const r = await startRelay(coord, { now, timezone: 'Asia/Shanghai' })
   t.after(() => r.stop())
   const mac = device('computer'), phone = device('phone')
-  const quota = { dayMB: 1, monthMB: 2 }
+  const quota = { dayMB: 1, monthMB: 2, smallMB: 0 }      // no small-file allowance (quota.test.mjs covers it)
   const iat = T0 - 1000, exp = T0 + 20 * 3600_000
   const M = api(r, await httpToken(r, coord, mac, { peers: [phone.addr], iat, exp, quota }))
   const base = `/v1/b/${mac.addr}`

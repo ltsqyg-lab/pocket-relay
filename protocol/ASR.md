@@ -1,6 +1,7 @@
 # Pocket speech recognition — modes and gateway API v1
 
-Status: implementation spec, phase 1 (2026-10-08). License of the gateway implementation: **AGPL-3.0**.
+Status: implementation spec, phase 1 (2026-10-08); speech time per caller (§6.1) after the 2026-10-09 security review.
+License of the gateway implementation: **AGPL-3.0**.
 Related: [E2EE.md](E2EE.md) (tickets, blobs, envelopes), [COORD.md](COORD.md) §16 (ASR tickets).
 
 > **中文摘要**　「按住说话」有四种识别方式,第一次用时让用户选(官方云端排第一):
@@ -37,11 +38,12 @@ line the gateway prints (§11.2).
 
 ### `GET /v1/info` (public)
 ```json
-{ "service": "pocket-asr", "version": "1.0.0", "gatewayId": "official",
+{ "service": "pocket-asr", "version": "1.1", "gatewayId": "official",
   "engines": [ { "id": "volcano", "kind": "cloud", "langs": ["zh", "en"], "maxSeconds": 240, "default": true } ],
   "auth": ["ticket"] | ["token"] | ["ticket", "token"],
   "limits": { "maxBytes": 8388608, "maxSeconds": 240 } }
 ```
+`version` is major.minor only (the exact build is not advertised; `--version` on the command line prints it).
 
 ### `POST /v1/recognize?lang=zh|en|auto&engine=<id>`
 Body: the WAV file (`Content-Type: audio/wav`). `engine` optional (gateway default for the language).
@@ -59,11 +61,22 @@ Codes and HTTP statuses:
 | `too-large`, `too-long` | 413 | over `maxBytes` / over `maxSeconds` (or the engine's own limit) |
 | `empty` | 422 | no speech (the gateway answers this without calling an engine when the loudest sample is below 64) |
 | `rate` | 429 + `Retry-After` | this caller is over its limit (more than 2 requests at once, or over its per-minute count; 12 per minute on the official gateway) |
+| `quota` | 429 + `Retry-After` | this caller's speech time for the day or the month is used up (§6.1); `Retry-After` runs to the next day or month |
 | `engine-error` | 502 | the provider or program failed |
 | `busy` | 503 + `Retry-After` | the whole gateway is at its concurrency limit |
 | `engine-timeout` | 504 | the provider or program took too long |
 
-The App writes its own sentences for each code. A self-hosted gateway's "test" button can call `GET /v1/info` (does
+The App writes its own sentences for each code, except `quota`, whose answer carries the sentence (the cap and the time
+zone are the gateway's):
+```json
+429 { "ok": false, "code": "quota", "message": "speech time used up for now",
+      "zh": "今天的语音识别用完了(每天 120 分钟),北京时间 0 点恢复",
+      "en": "Speech recognition is used up for today (120 minutes a day). It resets at midnight Beijing time.",
+      "retryAfter": 50400, "quota": { "day": { "used": 7212.4, "cap": 7200 }, "month": { "used": 51000, "cap": 90000 } } }
+```
+(for the month: 「这个月的语音识别用完了(每月 1500 分钟),下个月 1 号恢复」 / "Speech recognition is used up for this month
+(1,500 minutes a month). It resets on the 1st."). `quota` figures are seconds of audio; `cap` 0 = no cap.
+A self-hosted gateway's "test" button can call `GET /v1/info` (does
 `auth` include `token`? do `engines[].langs` include the phone's language?) and then send half a second of audio that
 is not silent (silence answers `empty`).
 
@@ -83,6 +96,8 @@ A gateway accepts one or both:
   The gateway checks the ticket and everything in the proof except `bodySha` from the headers, before it reads the body
   and before the request counts against the account's rate and concurrency; only `bodySha` waits for the body. A stolen
   ticket without the device key therefore cannot use up its owner's voice limits.
+  A ticket may carry `asrQuota: { "dayMin": <n>, "monthMin": <n> }` (minutes of audio, 0 = no cap): the account's
+  speech time (§6.1). Coordination signs it into ASR tickets.
 - **Revocations** work as on relays (RELAY.md §3.3): a gateway that accepts tickets takes signed revocation documents
   at `POST /v1/revocations` (coordination pushes them to the official gateway over loopback and pushes again every
   minute until one is accepted, COORD §11; answer `{ok, applied}`; at most 120 documents per minute for the whole
@@ -181,7 +196,9 @@ Optional: every key has a default, and with no file at all the gateway runs as i
     { "id": "local", "type": "sherpa-onnx", "bin": "/opt/sherpa/bin/sherpa-onnx-offline", "model": "/var/lib/pocket-asr/models/sense-voice-int8", "threads": 2 }
   ],
   "default": { "zh": "local", "en": "local" },
-  "limits": { "maxBytes": 8388608, "maxSeconds": 240, "perMinute": 12, "concurrentPerCaller": 2, "concurrent": 8 }
+  "timezone": "Asia/Shanghai",
+  "limits": { "maxBytes": 8388608, "maxSeconds": 240, "perMinute": 12, "concurrentPerCaller": 2, "concurrent": 8,
+              "dayMinutes": 120, "monthMinutes": 1500 }
 }
 ```
 Values of the form `env:NAME` are read from the environment at startup (secrets never sit in the file).
@@ -189,9 +206,26 @@ Limits are per caller (token label or ticket account).
 Defaults: `gatewayId` `my-asr` (required when ticket auth is on: tickets are addressed to `asr:<gatewayId>`);
 `listen` every address (`host: null`), port 8444; `tls` `"auto"` (§11.1); `publicUrl` `null` (§11.1); `coordUrl`
 `https://pocket.pocketcli.net`; `dataDir` `/var/lib/pocket-asr` when started from the command line; no `engines` = the
-local engine of §11.1. Environment variables override the file: `ASR_DATA_DIR`, `ASR_PORT`, `ASR_PUBLIC_URL`, `ASR_TLS`
-(`auto` | `self` | `off`), `ASR_COORD_URL`; the file itself comes from `--config`, `ASR_CONFIG` or
-`/etc/pocket-asr/asr.json`.
+local engine of §11.1; `timezone` `Asia/Shanghai`; `dayMinutes` 120, `monthMinutes` 1500 (§6.1). Environment variables
+override the file: `ASR_DATA_DIR`, `ASR_PORT`, `ASR_PUBLIC_URL`, `ASR_TLS` (`auto` | `self` | `off`), `ASR_COORD_URL`,
+`ASR_DAY_MINUTES`, `ASR_MONTH_MINUTES`; the file itself comes from `--config`, `ASR_CONFIG` or `/etc/pocket-asr/asr.json`.
+
+### 6.1 Speech time
+Each caller has a number of minutes of audio per day and per month; days and months follow `timezone` (Beijing time by
+default). A recognition counts its audio length as soon as it reaches an engine, whatever comes back — an engine error,
+`empty`, a timeout or a client that went away count too, so cutting a request short does not buy engine time. Requests
+refused before an engine (auth, rate, silence, `too-long`, `bad-audio`, …) count nothing.
+- **Caps**: for a ticket caller, the `asrQuota` of the **newest ticket the gateway has seen for the account** (largest
+  `iat`, whichever device showed it), so every device of an account has the same caps and a change applies as soon as
+  any device renews; a field the ticket leaves out, and every static-token caller, get `limits.dayMinutes` /
+  `limits.monthMinutes`. 0 = no cap. The demo account gets small caps from coordination; the gateway has no special case.
+- **Refusal**: while the day's or the month's time is used up (used ≥ cap) the gateway answers `429 quota` (§2) at once,
+  before reading the audio, with `Retry-After` until the next day, or the next month when the month is used up. A
+  recognition that starts with time left runs to the end, so the last one of the day may go past the cap by its length.
+- **Persistence**: with a `dataDir` the figures are kept in `<dataDir>/usage.json` (0600, written atomically at most every
+  2 s and on shutdown, only by a gateway that is serving), so a restart does not reset them. The file holds a hash of
+  each caller (never the account id or token label), its seconds today and this month, and the newest ticket's `iat`
+  and `asrQuota` per account.
 
 ## 7. Privacy rules (all modes, all gateways)
 - Audio and text live in memory for one request; local engines use one temp file that is deleted before the response.
@@ -201,6 +235,7 @@ local engine of §11.1. Environment variables override the file: `ASR_DATA_DIR`,
   its owner asks for and — without `publicUrl` — one `GET /v2/whoami` to coordination per start, §11.1).
 - The official gateway keeps the same 7-month log retention as the coordination server; it does not keep audio or
   text at all. The privacy policy names the speech service that receives the audio in `official` mode (as a processor).
+- Speech time (§6.1) is kept per hashed caller as seconds of audio, nothing else.
 
 ## 8. `computer` mode
 1. The App offers this mode only when a computer's `info` object (E2EE §10.1) reports
@@ -235,7 +270,8 @@ local engine of §11.1. Environment variables override the file: `ASR_DATA_DIR`,
 coordination server's TLS listener; the proxy does not forward `/asr/v1/revocations`, which only coordination uses over
 loopback), one cloud engine with today's credentials file, ticket auth only, `dataDir` `/var/lib/pocket-asr` (cut-offs
 and adopted coordination keys survive restarts), limits as today: 12 recognitions per account per minute, 2 at once per
-account, 8 at once in total.
+account, 8 at once in total; speech time per account from the `asrQuota` coordination signs into ASR tickets (falling
+back to 120 minutes a day and 1500 a month), counted in Beijing time and kept in `/var/lib/pocket-asr/usage.json` (§6.1).
 
 ## 11. Self-hosting
 Most people who self-host have one server with a public IP address and no domain. Like Tailscale's DERP servers, the
@@ -312,8 +348,10 @@ validates the certificate the usual way (system roots and host name). The App's 
 ## 12. Conformance tests
 WAV validation (rates, channels, truncated headers, size and duration limits); token auth (hash only); ticket auth with
 every `vectors.json` `coord.ticket`/`coord.asrAuth` case plus nonce replay and body mismatch; per-caller rate and
-concurrency limits; each cloud adapter against a local mock of its protocol (request shape, auth header or signature,
-error mapping, abort); each local engine with a fake program (argument array, timeout kill, temp file deleted on
+concurrency limits; speech time (§6.1: day and month in Beijing time and in another zone, `Retry-After`, both sentences,
+the account's newest ticket whichever device shows it, configured defaults, 0 = no cap, token callers, what counts and
+what does not, kept across a restart without account ids in the file); `version` as major.minor; each cloud adapter
+against a local mock of its protocol (request shape, auth header or signature, error mapping, abort); each local engine with a fake program (argument array, timeout kill, temp file deleted on
 success, error and abort); logs and error bodies contain no text or audio; `computer` mode end to end through a local
 relay with the agent's embedded module; self-hosting (§11): the certificate kept across starts and never replaced by
 the commands, tokens stored as hashes and picked up / dropped while running, whoami answers and fallbacks, the line's

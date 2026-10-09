@@ -1,6 +1,7 @@
 // Stored objects (RELAY.md §6.3, E2EE.md §10): binary seals written by a realm's computer, read by its phones.
 // Index rows in SQLite (one row per object, deleted objects kept as tombstones for `tombstoneDays` so readers can
 // list "changes since rev"); bodies in files named by a hash of (kind, key, seq) — safe on case-insensitive disks.
+// Writes count against the account's stored bytes (§8.3) and stop while the disk is nearly full (§8.4).
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import fs from 'node:fs'
@@ -15,13 +16,15 @@ const DAY = 86_400_000
 const TOUCH_GAP = 3_600_000
 
 export class Objects {
-  constructor({ store, limits, retention, now = Date.now, notify = () => {}, access }) {
+  constructor({ store, limits, retention, now = Date.now, notify = () => {}, access, quota = null, disk = null }) {
     this.store = store
     this.limits = limits
     this.retention = retention
     this.now = now
     this.notify = notify
     this.access = access
+    this.quota = quota
+    this.disk = disk
     this.buckets = new Map()          // per-owner write rate
   }
 
@@ -49,7 +52,7 @@ export class Objects {
     let b = this.buckets.get(addr)
     if (!b) { b = { t: cap, at: now }; this.buckets.set(addr, b) }
     b.t = Math.min(cap, b.t + ((now - b.at) / 1000) * cap); b.at = now
-    if (b.t < 1) fail('rate')
+    if (b.t < 1) fail('rate', 'object writes', { retryAfter: 1 })   // 让写的一方等 1 秒再来,不是长时间停下(2026-10-09)
     b.t -= 1
     if (this.buckets.size > 10000) for (const [k, v] of this.buckets) if (now - v.at > 60_000) this.buckets.delete(k)
   }
@@ -61,6 +64,18 @@ export class Objects {
     fs.renameSync(tmp, file)
   }
   unlink(file) { try { fs.unlinkSync(file) } catch { /* already gone */ } }
+
+  /**
+   * Before the body of a PUT is read: refuse what could not be stored anyway — no room left for the account (§8.3) or
+   * on the disk (§8.4) — so that a refused write does not cost its upload. put() checks again with the real body.
+   */
+  precheck(ident, realm, n, len) {
+    this.access.owner(ident, realm)
+    if (n.seq === null) return
+    const prev = this.store.get('objGet', realm, n.kind, n.key, n.seq)
+    this.quota?.checkStore(ident.acct, ident, len - (prev && !prev.del ? prev.bytes : 0))
+    this.disk?.check(len)
+  }
 
   /** PUT: owner only; version must grow; header must agree with the request. */
   put(ident, realm, n, verHeader, body) {
@@ -80,6 +95,10 @@ export class Objects {
     const now = this.now()
     const prev = this.store.get('objGet', realm, n.kind, n.key, n.seq)
     if (prev && ver <= prev.ver) fail('ver', 'stale version', { ver: prev.ver })
+    // what the account keeps grows by the difference to the version it replaces (§8.3); the file is written in full
+    const delta = body.length - (prev && !prev.del ? prev.bytes : 0)
+    this.quota?.checkStore(ident.acct, ident, delta)
+    this.disk?.check(body.length)
     this.access.claimRealm(ident, realm)
     this.writeFile(this.fileOf(realm, n.kind, n.key, n.seq), body)
     const rev = this.store.tx(() => {
@@ -87,6 +106,7 @@ export class Objects {
       this.store.run('objPut', realm, n.kind, n.key, n.seq, ver, body.length, now, now, r)
       return r
     })
+    this.quota?.noteObjects(ident.acct, delta)
     this.notify(realm, { kind: n.kind, key: n.key, ...(n.seq ? { seq: n.seq } : {}), ver, rev, bytes: body.length })
     return { ver, rev, bytes: body.length }
   }
@@ -121,6 +141,7 @@ export class Objects {
         return r
       })
       for (const s of seqs) this.unlink(this.fileOf(realm, n.kind, n.key, s.seq))
+      this.quota?.dropObjects(ident.acct)
       this.notify(realm, { kind: n.kind, key: n.key, ver: 0, rev, bytes: 0, del: true })
       return { rev, deleted: seqs.length }
     }
@@ -132,6 +153,7 @@ export class Objects {
       return r
     })
     this.unlink(this.fileOf(realm, n.kind, n.key, n.seq))
+    this.quota?.noteObjects(ident.acct, -row.bytes)
     this.notify(realm, { kind: n.kind, key: n.key, ...(n.seq ? { seq: n.seq } : {}), ver: row.ver, rev, bytes: 0, del: true })
     return { rev, deleted: 1 }
   }
@@ -210,6 +232,7 @@ export class Objects {
       if (r) this.store.run('realmPurged', r.rev, realm)
     })
     try { fs.rmSync(path.join(this.store.dir, 'o', realm), { recursive: true, force: true }) } catch { /* nothing there */ }
+    if (r) this.quota?.dropObjects(r.acct)
     return rows.filter((x) => !x.del).length
   }
 
@@ -233,6 +256,7 @@ export class Objects {
       }
       if (rows.length < 2000) break
     }
+    if (removed) this.quota?.dropObjects()
     const tombOld = now - this.retention.tombstoneDays * DAY
     for (;;) {
       const rows = this.store.all('objOldTombs', tombOld)

@@ -128,12 +128,15 @@ Most relays need none. Settings come from environment variables and/or a JSON fi
 | `dataDir` | `/var/lib/pocket-relay` | Certificate, claim, index database, objects, attachments. |
 | `blobs` | `{"store": "disk"}` | Attachments on disk, or `{"store": "s3", "backends": [...]}` (below). |
 | `timezone` | `Asia/Shanghai` | Where days and months start for traffic quotas. |
-| `quota.dayMB`, `quota.monthMB`, `quota.storeMB` | unlimited | Per-account caps on attachment traffic and storage. |
-| `quota.useTicketQuota` | `true` | Use the caps in coordination tickets, when present. |
+| `quota.dayMB`, `quota.monthMB` | unlimited | Per-account caps on attachment traffic. |
+| `quota.storeMB` | `5120` | What one account may keep here: sessions and attachments together. `null` or `0`: no cap. |
+| `quota.smallMB`, `quota.smallFileMB` | `50`, `2` | When the day or month is used up, files up to `smallFileMB` (thumbnails, voice) still go through, up to `smallMB` a day. `0` turns this off. |
+| `quota.useTicketQuota` | `true` | Use the caps in the account's newest coordination ticket, when present. |
+| `disk.minFreeMB` | `5120` | Free space to leave on the data directory's disk. Below it the relay stores nothing new there (`503 full`); everything else keeps working. `0` turns this off. |
 | `retention.objectDays` | `30` | Delete objects not written or read for this long. A computer seen in the last week keeps its session list. |
-| `retention.blobDays` | `30` | Delete attachments not downloaded for this long (counted from upload if never downloaded). |
+| `retention.blobDays` | `30` | Delete attachments not downloaded for this long (counted from upload if never downloaded). Reading a few bytes doesn't count. |
 | `retention.queueMaxSeconds` | `604800` | Longest an envelope waits for an offline device. |
-| `limits` | see `src/config.mjs` | Sizes and rates (frame 2 MiB, envelope 1 MiB, 2 sockets per device, …). |
+| `limits` | see `src/config.mjs` | Sizes and rates (frame 2 MiB, 64 KiB before sign-in, envelope 1 MiB, 2 sockets per device, …). |
 
 ### S3-compatible storage
 
@@ -148,8 +151,10 @@ Works with AWS S3, Cloudflare R2, MinIO, Tencent COS and Aliyun OSS (S3-compatib
 presigned URLs). Keys come from the environment variables you name, never from the file. A new attachment goes to the
 first backend whose `when` matches the uploader: `cn-ip` matches IPs in the CIDR list in `cnIpFile` (one CIDR per
 line, a JSON array, or `{v4:[[start,end]…], v6:[…]}`), `default` matches everyone. If the bucket is unreachable, the
-attachment stays on the relay's disk. Objects are named `<prefix><address>/<blob id>`, with no file names, account ids
-or content types. The bucket needs no public access: upload links last an hour, download links two minutes.
+attachment stays on the relay's disk; otherwise nothing goes there. Objects are named `<prefix><address>/<blob id>`,
+with no file names, account ids or content types. The bucket needs no public access: upload links last 15 minutes,
+download links two minutes. The relay deletes what an upload link leaves behind after its attachment is gone. Give
+each relay its own bucket or `prefix`.
 
 ## Operations
 
@@ -172,7 +177,8 @@ or content types. The bucket needs no public access: upload links last an hour, 
   object and attachment counts.
 - **Data** is a cache of ciphertext that the computers can upload again. Only the certificate (`tls/`) and the claim
   (`binding.json`) can't be rebuilt: lose them and you add the relay in the app again. Deletes are immediate (no
-  trash). The retention settings cap disk use.
+  trash). Disk use is capped by retention, by `quota.storeMB` per account and by `disk.minFreeMB`: when the disk gets
+  that full, the log says `disk-low` and the relay stops taking new data until there is room again.
 - **Restarts** drop the in-memory session tokens, and devices sign in to the relay again by themselves.
 - **Revocations** come from coordination (`POST /v1/revocations`), through devices, or by polling. A revoked device is
   disconnected at once and a deleted device's data is removed. Purge orders signed by coordination (`POST /v1/purge`)

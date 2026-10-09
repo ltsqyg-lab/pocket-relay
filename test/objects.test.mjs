@@ -205,12 +205,13 @@ test('objects: write rate per owner, account isolation', async (t) => {
   t.after(() => r.stop())
   const mac = device('computer', 'u_a'), intruder = device('phone', 'u_b')
   const M = api(r, await httpToken(r, coord, mac, { peers: [] }))
-  let limited = 0
+  let limited = 0, retryAfter = null
   for (let i = 1; i <= 12; i++) {
     const res = await M.put(`/v1/o/${mac.addr}/msg/k/${i}`, objectSeal(mac, { kind: 'msg', key: 'k', seq: i, ver: i }), { ...SEAL, 'x-pocket-ver': String(i) })
-    if (res.status === 429) limited++
+    if (res.status === 429) { limited++; retryAfter = res.headers?.['retry-after'] ?? res.headers?.get?.('retry-after') ?? retryAfter }
   }
   assert.ok(limited > 0, 'rate limited')
+  assert.equal(String(retryAfter), '1', 'a rate refusal tells the writer to come back in a second, not to stop')
   // a device of another account whose (forged-by-coordination) peers name this computer still cannot read it
   const I = api(r, await httpToken(r, coord, intruder, { peers: [mac.addr] }))
   assert.equal((await I.get(`/v1/o/${mac.addr}?kinds=msg`)).status, 403)

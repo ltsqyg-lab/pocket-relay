@@ -16,6 +16,7 @@ import { CnIp } from './cnip.mjs'
 import { Objects, OBJ_KINDS } from './objects.mjs'
 import { Blobs } from './blobs.mjs'
 import { Hub } from './hub.mjs'
+import { DiskGuard } from './disk.mjs'
 import { ensureSelfSigned, pinOf } from './selfcert.mjs'
 import {
   claimFiles, readBinding, writeBinding, readClaim, ensureClaim, removeClaim, claimMatches, CLAIM_RE, RELAY_ID_RE, validAccount,
@@ -23,8 +24,13 @@ import {
 } from './claim.mjs'
 import { RelayError, fail, statusOf, verifyRelayAuth, verifyCoordDoc, b64u, sha256hex, isInt, checkAddr, SKEW_MS, unb64u, blobSizeFor } from './proto.mjs'
 
-export const VERSION = '0.2.0'
+export const VERSION = '0.2.1'
+// what the public endpoints say: major.minor only, so the exact build is not advertised (clients go by `features`)
+export const PUBLIC_VERSION = VERSION.split('.').slice(0, 2).join('.')
 const DAY = 86_400_000
+// a revocation document or purge order verifies only with a payload of at most 1 MiB (E2EE §12): base64url of that,
+// the signature and the JSON around them fit in 2 MiB, so nothing larger is read from anyone
+const CONTROL_BODY_MAX = 2 * 1024 * 1024
 const NONCE_TTL = 60_000
 // An address whose device stayed silent this long may go to a new device even when this relay never saw the `gone`
 // cut-off (it was offline when coordination published it): coordination holds a released address for 180 days
@@ -34,10 +40,11 @@ const REASSIGN_SILENCE = 180 * DAY
 /**
  * createRelay(cfg, opts): cfg from loadConfig/finalize. opts: now, log, fetchImpl, env, print (where the connection line
  * goes; default standard output), bindingPollMs (how often a claimable relay re-reads binding.json and claim.json, so
- * `reset-claim` from another process takes effect), whoamiRetryMs (first retry when the public address is unknown).
+ * `reset-claim` from another process takes effect), whoamiRetryMs (first retry when the public address is unknown),
+ * statfs (free space of the data directory's disk; tests pass a fake one).
  */
 export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl = globalThis.fetch, env = process.env,
-  print = (text) => process.stdout.write(text), bindingPollMs = 3000, whoamiRetryMs = 60_000 } = {}) {
+  print = (text) => process.stdout.write(text), bindingPollMs = 3000, whoamiRetryMs = 60_000, statfs } = {}) {
   const store = new Store(cfg.dataDir)
   // ---- binding (RELAY.md §12.1): from the configuration, from a claim (binding.json), or none yet ----------------------
   // Without one only /.well-known/pocket-relay, /v1/info and /v1/claim answer; everything else is 503 `unclaimed`.
@@ -53,6 +60,8 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
   const cutoffs = new Cutoffs({ store, now })
   const quota = new Quota({ store, timezone: cfg.timezone, quota: cfg.quota, now })
   const cnip = new CnIp({ file: cfg.blobs.cnIpFile ?? null, unknownMatches: cfg.blobs.cnIpUnknown !== 'nomatch' })
+  const disk = new DiskGuard({ dir: cfg.dataDir, minFreeMB: cfg.disk?.minFreeMB ?? 0, log: logger, ...(statfs ? { statfs } : {}) })
+  disk.free()                         // says so in the log at once when the disk is already nearly full
 
   // ---- tokens (RELAY.md §3.2): 32 random bytes, only their SHA-256 kept, in memory, until the ticket's exp ----------
   const tokens = new Map()
@@ -111,8 +120,8 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
   }
 
   let hub
-  const objects = new Objects({ store, limits: cfg.limits, retention: cfg.retention, now, access, notify: (realm, o) => hub?.notify(realm, o) })
-  const blobs = new Blobs({ cfg, store, quota, now, log: logger, env, fetchImpl, cnip, access })
+  const objects = new Objects({ store, limits: cfg.limits, retention: cfg.retention, now, access, quota, disk, notify: (realm, o) => hub?.notify(realm, o) })
+  const blobs = new Blobs({ cfg, store, quota, now, log: logger, env, fetchImpl, cnip, access, disk })
 
   /** Delete everything stored under an address (as a realm) and every envelope queued for it. */
   async function purgeAddr(addr) {
@@ -151,12 +160,14 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
         logger.info('addr-reassigned', { addr: T.addr, acct: T.acct, objects: d.objects, blobs: d.blobs })
       } else if (known && known.acct !== T.acct) fail('wrong-account')
       store.run('identPut', T.addr, T.acct, T.dev, T.kind, now())
-      return { acct: T.acct, dev: T.dev, addr: T.addr, kind: T.kind, sig: T.sig, peers: new Set(T.peers), quota: T.quota ?? null, iat: T.iat, exp: T.exp }
+      const ident = { acct: T.acct, dev: T.dev, addr: T.addr, kind: T.kind, sig: T.sig, peers: new Set(T.peers), quota: T.quota ?? null, iat: T.iat, exp: T.exp }
+      quota.observe(ident)          // the account's newest ticket sets the caps for all its devices (RELAY.md §8.3)
+      return ident
     },
     token: issueToken,
   }
 
-  hub = new Hub({ cfg, store, now, log: logger, auth, access, cutoffs })
+  hub = new Hub({ cfg, store, now, log: logger, auth, access, cutoffs, disk })
 
   // HTTP challenges: nonce → expiry, single use
   const nonces = new Map()
@@ -194,6 +205,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     deleted.blobs += await blobs.purgeAcct(acct)
     deleted.queued += store.run('qDelAcct', acct).changes
     store.run('trafDelAcct', acct)
+    quota.forget(acct)
     for (const a of realms) store.run('realmDel', a)
     if (forget) for (const a of idents) store.run('identDel', a)
     return deleted
@@ -292,7 +304,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     const status = statusOf(code)
     const body = { error: code, ...(e?.extra ?? {}) }
     const headers = {}
-    if ((code === 'quota' || code === 'rate') && e.extra?.retryAfter) headers['Retry-After'] = String(e.extra.retryAfter)
+    if ((code === 'quota' || code === 'rate' || code === 'full') && e.extra?.retryAfter) headers['Retry-After'] = String(e.extra.retryAfter)
     if (status === 401 && code === 'token') headers['WWW-Authenticate'] = 'Bearer'
     if (!res.headersSent) sendJson(res, status, body, headers)
     else res.destroy()
@@ -315,7 +327,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     try { const j = JSON.parse(b.toString('utf8')); if (!j || typeof j !== 'object' || Array.isArray(j)) throw 0; return j } catch { fail('bad-request', 'JSON body') }
   }
   const info = () => ({
-    service: 'pocket-relay', version: VERSION, state: bound() ? 'claimed' : 'unclaimed', relayId: cfg.relayId, account: cfg.account, time: now(),
+    service: 'pocket-relay', version: PUBLIC_VERSION, state: bound() ? 'claimed' : 'unclaimed', relayId: cfg.relayId, account: cfg.account, time: now(),
     features: ['ws', 'objects', 'blobs', ...(blobs.presign ? ['presign'] : [])],
     limits: { envelope: cfg.limits.envelope, object: { ...cfg.limits.objects }, blob: cfg.limits.blob },
   })
@@ -341,11 +353,11 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     if (m === 'GET' && url.pathname === '/v1/info') { ctx.quiet = true; return sendJson(res, 200, info()) }
     if (m === 'GET' && url.pathname === '/.well-known/pocket-relay') {
       ctx.quiet = true
-      return sendJson(res, 200, bound() ? { v: 1, state: 'claimed', relayId: cfg.relayId, account: cfg.account, version: VERSION } : { v: 1, state: 'unclaimed' })
+      return sendJson(res, 200, bound() ? { v: 1, state: 'claimed', relayId: cfg.relayId, account: cfg.account, version: PUBLIC_VERSION } : { v: 1, state: 'unclaimed' })
     }
     if (m === 'POST' && url.pathname === '/v1/claim') return claimRoute(req, res, ctx)
     if (!bound()) claimFail('unclaimed')
-    if (m === 'GET' && url.pathname === '/v1/health') { ctx.quiet = true; return sendJson(res, 200, { ok: true, version: VERSION }) }
+    if (m === 'GET' && url.pathname === '/v1/health') { ctx.quiet = true; return sendJson(res, 200, { ok: true, version: PUBLIC_VERSION }) }
     if (m === 'GET' && url.pathname === '/v1/metrics') {
       if (!isLoopback(req)) fail('not-found')
       const count = (sql) => store.db.prepare(sql).get().n
@@ -377,15 +389,18 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
       ctx.acct = ident.acct; ctx.addr = ident.addr
       return sendJson(res, 200, { token: issueToken(ident), exp: ident.exp, addr: ident.addr, dev: ident.dev })
     }
+    // Control documents need no token: the coordination signature is the authorization. A revocation document must
+    // verify under a coordination key whose `use` includes "revocations", a purge order under one with "purge" (label,
+    // kid, key validity and signature: proto.verifyCoordDoc); anything else is refused before it changes anything.
     if (m === 'POST' && url.pathname === '/v1/revocations') {
       if (!isLoopback(req)) limitIp(ctx, 'control', 60)          // unauthenticated signature checks: bounded per IP
-      const doc = await readJson(req, 4 * 1024 * 1024)
+      const doc = await readJson(req, CONTROL_BODY_MAX)
       const r = await applyRevocations(doc)
       return sendJson(res, 200, { applied: r.applied })
     }
     if (m === 'POST' && url.pathname === '/v1/purge') {
       if (!isLoopback(req)) limitIp(ctx, 'control', 60)
-      const doc = await readJson(req)
+      const doc = await readJson(req)                            // a purge order is small (limits.jsonBody)
       return sendJson(res, 200, await applyPurge(doc))
     }
     if (m === 'GET' && url.pathname === '/v1/me/quota') {
@@ -515,6 +530,8 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
       if (m === 'PUT') {
         ctx.op = 'obj-put'
         const max = cfg.limits.objects[n.kind] + 4096 + 16 + 72
+        const len = Number(req.headers['content-length'])
+        if (Number.isSafeInteger(len) && len > 0 && len <= max) objects.precheck(ident, realm, n, len)
         const body = await readBody(req, max)
         const r = objects.put(ident, realm, n, req.headers['x-pocket-ver'], body)
         ctx.bytes = body.length
@@ -732,7 +749,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
   }
 
   return {
-    cfg, store, keys, cutoffs, quota, objects, blobs, hub, tokens, server, log: logger,
+    cfg, store, keys, cutoffs, quota, objects, blobs, hub, tokens, server, disk, log: logger,
     get state() { return { bound: bound(), source: bindSource, relayId: cfg.relayId, account: cfg.account, publicHost, pin: currentPin() } },
     syncBinding,
     sweep, pollAccount, applyRevocations, applyPurge, purgeAddr,

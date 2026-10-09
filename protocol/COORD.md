@@ -70,7 +70,7 @@ open-source service — ASR.md).
 ```
 (`sasLang`, sent by versions that compared 6 words, is ignored.)
 Server:
-1. Validate keys (E2EE §3.3) and name; verify `proof` (E2EE §13, `enroll-auth`: bound to these two keys and to the
+1. Validate keys (E2EE §3.3) and name (1–64 characters, no control or bidi characters, else `400 bad-name`); verify `proof` (E2EE §13, `enroll-auth`: bound to these two keys and to the
    presented token, `|now − ts| ≤ 5 min`, signed by `sig`; `400 bad-proof` / `stale` / `bad-sig`) — so only a holder of
    the private key can bind a token to a device, and a stolen password cannot take over or suspend another device's
    binding; `did = didOf(sig, kx)`; kind from the token.
@@ -88,9 +88,29 @@ Server:
      then pairs (§4.5).
 5. Answer
 ```json
-{ "did": "…", "addr": "100.64.12.7", "state": "genesis" | "waiting" | "pending" | "active" | "suspended" | "revoked",
+{ "did": "…", "addr": "100.64.12.7", "name": "iPhone 18 Pro", "state": "genesis" | "waiting" | "pending" | "active" | "suspended" | "revoked",
   "pendingId": "pd_…"?, "pair": { "attempt", "stage", "left", … }?, "lock": { "seq": 9, "h": "…", "genesis": "…" }?, "demo": true? }
 ```
+`name` is the name as registered (see "Device names" below); a device that writes its own genesis should use it.
+
+**Device names** (2026-10-09). A new device's name is shown to the user right next to "enter the 6-digit code shown on
+it" (`enroll_pending`, the pending list, the `device_pending` notification), so a name like "pairing code 482913" could
+talk a user into typing the attacker's code. Coordination therefore registers every device name — here, and the device
+labels of `/v1/auth/login|register` (`deviceName`), `/v1/agents/login|claim` (`host`), the OAuth `device` and a v1
+computer's `hello.host` — rewritten by one rule (the same function everywhere):
+- kept: letters (any script), digits, spaces and `. - _ ' ’ ‘ ( )` plus the full-width `．－＿＇（）`; other symbols become
+  a space, invisible characters (controls, format characters, zero-width) are dropped, runs of spaces collapse;
+- a run of three or more digits — digits separated only by spaces or the punctuation above count as one run; any
+  script's decimal digits and Chinese numerals count — keeps its first two digits followed by `…`
+  ("Xiaomi 23049RAD8C" → "Xiaomi 23…RAD8C", "pairing code 48 29 13" → "pairing code 48…");
+- at most 40 characters; if no letter or digit is left, the platform's name ("iPhone", "Android", "Mac", "Windows",
+  "Linux"; v1 labels: "手机" / "computer").
+
+The rule rewrites instead of refusing: phone models and default computer names often contain digit runs and users cannot
+change them. It is idempotent. Names stored before this rule are not migrated; the pending list, `enroll_pending` and the
+`device_pending` / `device_added` notifications show them rewritten too. For `genesis` and `add` (§5) the entry's name
+must equal the registered name after this rewrite (an older client that writes its genesis with its own unrewritten name
+is accepted).
 `pair` (only while `pending` and after the first offer): the device's own pairing progress, as in `GET /v2/pair/{pendingId}`
 (§4.5), so a restarted device continues without first hitting `409 stale`.
 `demo: true` only on the review demo account (§15): its only admin is the demo computer, which has no screen and nobody to
@@ -113,7 +133,8 @@ succeeded on its side (E2EE §6). Coordination does not track that.
   to the requester. (Coordination-level; no signature needed — rejecting can only reduce access.)
 
 ### 4.3 Suspend and remove
-- `POST /v2/devices/{did}/suspend` (any live phone of the account, or the device itself) → coordination suspension
+- `POST /v2/devices/{did}/suspend` (any live phone of the account, or the device itself; on the demo account only the
+  device itself, §15) → coordination suspension
   (E2EE §5.7): token revoked, new revocation item with `nbf = now`, control socket closed, netmap pushed. Used by
   "log out this phone", "log out all devices" (all devices), password change (other phones).
 - A suspended device that signs in again and enrolls with the same keys returns to `active` (a new cut-off is not
@@ -221,8 +242,9 @@ device that is not a live admin, or by B itself → `403 not-admin`.
 Coordination accepts the field only on the demo account (`400 bad-pair` elsewhere), keeps it with the attempt until it is
 answered or failed, and passes it to the admins (`pair_offer` and the admin view of `pair`). The demo computer, the
 account's only admin, runs A with it: answer → (B confirms) → check `cB` → `add` with `sas: true`. Nothing else differs; the
-`add` check has no exception. (Clients send `demoCode` only when enroll says `demo: true` **and** the account is the review
-account built into them, E2EE §6.6 — a lying coordination server must not be able to collect a real code this way.) After
+`add` check has no exception. (Only phones send `demoCode`, and only when enroll says `demo: true` **and** the account the
+user typed is the review account built into the app, E2EE §6.6; computers never send it, and the demo account cannot bind
+computers at all, §15. A lying coordination server must not be able to collect a real code this way.) After
 a restart between its answer and B's confirmation the demo computer cannot check `cB`; it rejects that pending entry and B
 enrolls again.
 
@@ -271,8 +293,15 @@ be tried, and every attempt needs the user to type a code on an admin device.
 - Relay tickets only for the account's current relay or another relay registered to the account (so devices can move).
 - `peers`: for a phone, addresses of computers it can `read` (E2EE §7.2); for a computer, addresses of phones that can
   `read` it. Revoked and suspended devices never appear.
-- `quota`: the account's attachment limits for the official relay (`prefs.quota` or the defaults 200 MB/day,
-  2048 MB/month), absent for other relays.
+- `quota`: the account's attachment limits for the official relay, `{dayMB, monthMB, smallMB, storeMB}` (`prefs.quota` or
+  the defaults 200 MB/day, 2048 MB/month, a 50 MB/day small-file allowance and 5120 MB stored — `POCKET_QUOTA_STORE_MB`,
+  per account `cli user quota <name> store <MB>`, 0 = unlimited; the demo account: 1024 MB/day, 10240 MB/month, 200 MB
+  stored; RELAY.md §8.3), absent for other relays.
+  The relay holds every device of the account to the caps of the account's newest ticket. When the limits change
+  (`cli user quota`, or any other way), coordination notices within one tick (a minute) for accounts with a device on
+  the control socket and announces a netmap change (§9); devices renew their relay ticket on every netmap
+  announcement, so the new caps apply within a minute or so. Each change is announced once (`acct_v2.quota_sig` keeps
+  the limits last put in a ticket or announced).
 - Lifetime 6 hours; clients renew at half-life. Rate: 60 per device per hour. The server never issues a ticket living
   longer than 24 hours, whatever its configuration says (relays and gateways refuse longer ones).
 
@@ -303,7 +332,8 @@ address checks; an address on the relay's own host and port keeps the pin. A rel
 (public CAs). A `pin` field that is present but malformed is still enforced (the connection fails), never ignored.
 
 ## 9. Control WebSocket
-`GET /v2/ws` (Bearer; the token must be bound to a device). One per device. Server → device events:
+`GET /v2/ws` (Bearer in the `Authorization` header — a `?token=` query parameter is not accepted; the token must be bound
+to a device). One per device. Server → device events:
 
 | Event | Fields | To | Meaning |
 |---|---|---|---|
@@ -449,9 +479,30 @@ sessions as objects to the official relay over loopback and answers commands wit
 reviewer's phone that enrolls before the demo lock exists gets `waiting`, turns `pending` when the lock appears and pairs
 then. Account deletion and re-creation work as today; the demo account never gets `reset`.
 
+Its password is given to reviewers, so treat it as semi-public (2026-10-09):
+- **phones only**: the demo computer pairs with and adds phones only, and rejects any other pending computer; coordination
+  refuses an `add` of a computer on the demo account (`403 not-allowed`), and no other computer can get a token for it —
+  `/v1/agents/login`, `/v1/agents/pair-code`, `/v1/agents/claim` and the OAuth `authorize` / `token` answer `403` for the
+  demo account (the demo computer gets its token from the loopback admin interface);
+- **at most 20 live devices** in the demo lock (`POCKET_DEMO_DEVICE_MAX`): before adding a phone to a full lock the demo
+  computer revokes the phone seen longest ago (offline phones first); coordination refuses an `add` to a full lock
+  (`409 device-limit`);
+- a phone can sign out only itself (`POST /v2/devices/{did}/suspend` for another device → `403 not-allowed`);
+- no relay changes: `POST /v2/relays`, `…/verify`, `DELETE /v2/relays/{id}` and `POST /v2/account/relay` answer
+  `403 not-allowed`;
+- small limits: official relay quota above (200 MB stored), speech recognition 5 minutes a day and 60 a month (§16).
+
 ## 16. ASR tickets
-`POST /v2/tickets {aud: "asr:official"}` issues a ticket for the official ASR gateway (ASR.md §3) with `peers: []`.
-Rate limit 120 per device per hour (the gateway enforces per-account recognition limits itself).
+`POST /v2/tickets {aud: "asr:official"}` issues a ticket for the official ASR gateway (ASR.md §3) with `peers: []` and the
+account's recognition limits:
+```json
+"asrQuota": { "dayMin": 120, "monthMin": 1500 }
+```
+minutes of audio per day and per month, 0 = unlimited. Defaults 120 and 1500 (`POCKET_ASR_DAY_MIN`, `POCKET_ASR_MONTH_MIN`),
+per account `cli user quota <name> asr <day> <month>` (`prefs.asrQuota`); the demo account gets `{dayMin: 5, monthMin: 60}`.
+The gateway adds up recognized seconds per account (`acct`) and refuses more once a limit is reached; when a ticket carries
+no `asrQuota` it applies the same defaults. A change applies from the device's next speech ticket (at most 6 hours).
+Rate limit 120 tickets per device per hour.
 
 ## 17. Storage
 New tables (SQLite, same database as v1):
@@ -483,6 +534,9 @@ purge_queue (id INTEGER PK, relay_id, order_doc TEXT, next_try, tries, created_a
 | `/v2/whoami` | 30 per IP per minute |
 | Resets | 3 per account per 30 days |
 | Control sockets | 1 per device (a new one replaces the old) |
+| Attachments on the official relay | 200 MB/day, 2048 MB/month, 5120 MB stored per account (§7) |
+| Speech recognition (official gateway) | 120 minutes/day, 1500 minutes/month per account (§16) |
+| Demo account | 20 live devices; phones only; 200 MB stored; 5 minutes of speech a day (§15) |
 
 ## 19. Dual run
 The v1 API keeps working for old clients during the transition (2–4 weeks); its interplay with v2 — which computer
@@ -503,4 +557,5 @@ notifications) keep working. A computer already on v2 that an old version tries 
 `bad-request`, `bad-key`, `bad-name`, `bad-proof`, `stale`, `not-bound`, `revoked`, `suspended`, `no-lock`,
 `genesis-not-allowed`, `head`, `bad-pair`, `pair-required`, `pair-limit`
 (+ `head`), any E2EE validation code (`bad-sig`, `not-admin`, …), `not-found`, `not-admin`, `relay-unverified`,
-`relay-unreachable`, `relay-url`, `relay-pin-mismatch`, `relay-claim-rejected`, `rate`, `reset-window`, `password`, `code`.
+`relay-unreachable`, `relay-url`, `relay-pin-mismatch`, `relay-claim-rejected`, `rate`, `reset-window`, `password`, `code`,
+`not-allowed` (the demo account, §15), `device-limit` (the demo account's lock is full, §15).

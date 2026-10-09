@@ -27,8 +27,8 @@ export const STATUS = {
   'not-found': 404,
   ver: 409, exists: 409, size: 409, claimed: 409,
   'too-large': 413,
-  rate: 429, quota: 429, full: 429,
-  storage: 503, unclaimed: 503,
+  rate: 429, quota: 429,
+  storage: 503, unclaimed: 503, full: 503,
 }
 export const statusOf = (code) => STATUS[code] ?? 400
 

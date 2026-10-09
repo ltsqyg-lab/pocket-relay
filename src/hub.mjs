@@ -11,7 +11,7 @@ const REPLAY_MAX = 1000
 let CONN_SEQ = 0
 
 export class Hub {
-  constructor({ cfg, store, now = Date.now, log, auth, access, cutoffs }) {
+  constructor({ cfg, store, now = Date.now, log, auth, access, cutoffs, disk = null }) {
     this.cfg = cfg
     this.limits = cfg.limits
     this.store = store
@@ -20,7 +20,9 @@ export class Hub {
     this.auth = auth                  // async (msg, nonce) → ident; issues tokens via auth.token(ident)
     this.access = access
     this.cutoffs = cutoffs
+    this.disk = disk                  // queueing stops while the disk is nearly full (RELAY.md §8.4)
     this.conns = new Set()
+    this.unauth = 0                   // sockets that have not authenticated yet
     this.byAddr = new Map()           // addr → Set<conn> (authenticated)
     this.byAcct = new Map()           // acct → Set<conn>
     this.subs = new Map()             // realm → Set<conn>
@@ -32,17 +34,33 @@ export class Hub {
   }
 
   // ---- connections ------------------------------------------------------------------------------------------
+  // Before authentication a socket may only answer the challenge: its frames are capped at limits.authFrame (64 KiB,
+  // an auth frame is ~15 KB), it has limits.authSeconds to do it, and at most limits.unauthSockets such sockets are
+  // open at once, all clients together. The full frame size comes with `ready` (red team 2026-10-09: 2 MiB buffered
+  // per unauthenticated socket, without a total).
   onUpgrade(req, socket, head, ip) {
-    const ws = upgrade(req, socket, head, { maxMessage: this.limits.frame })
+    if (this.unauth >= this.limits.unauthSockets) {
+      socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nRetry-After: 5\r\nContent-Length: 0\r\n\r\n')
+      return
+    }
+    const ws = upgrade(req, socket, head, { maxMessage: Math.min(this.limits.authFrame, this.limits.frame) })
     if (!ws) return
     const conn = { id: ++CONN_SEQ, ws, ip, ident: null, nonce: null, authing: false, subs: new Set(), openedAt: this.now(),
-      bucket: { t: this.limits.frameBurst, at: Date.now() }, over: 0, expTimer: null, authTimer: null }
+      bucket: { t: this.limits.frameBurst, at: Date.now() }, over: 0, expTimer: null, authTimer: null, pending: true }
     this.conns.add(conn)
+    this.unauth++
     ws.onMessage = (m) => this.onFrame(conn, m)
     ws.onClose = (code) => this.onClose(conn, code)
     this.challenge(conn)
     conn.authTimer = setTimeout(() => { if (!conn.ident) { this.error(conn, 'expired'); ws.close(4408, 'auth timeout') } }, this.limits.authSeconds * 1000)
     conn.authTimer.unref?.()
+  }
+
+  /** The socket authenticated (or went away before): it no longer counts as pending. */
+  settled(conn) {
+    if (!conn.pending) return
+    conn.pending = false
+    this.unauth = Math.max(0, this.unauth - 1)
   }
 
   challenge(conn) {
@@ -114,7 +132,11 @@ export class Hub {
     }
     clearTimeout(conn.authTimer)
     conn.ident = ident
-    if (!prev) this.register(conn)
+    if (!prev) {
+      this.settled(conn)
+      conn.ws.maxMessage = this.limits.frame
+      this.register(conn)
+    }
     else for (const realm of [...conn.subs]) if (!this.access.canRead(ident, realm)) this.unsub(conn, realm)
     clearTimeout(conn.expTimer)
     conn.expTimer = setTimeout(() => { this.error(conn, 'expired'); conn.ws.close(4401, 'expired') }, Math.max(1000, ident.exp + SKEW_MS - this.now()))
@@ -152,6 +174,7 @@ export class Hub {
 
   onClose(conn) {
     this.conns.delete(conn)
+    this.settled(conn)
     clearTimeout(conn.authTimer); clearTimeout(conn.expTimer)
     for (const realm of [...conn.subs]) this.unsub(conn, realm)
     if (!conn.ident) return
@@ -235,6 +258,7 @@ export class Hub {
       const envText = JSON.stringify(frame.env)
       const st = this.store.get('qStats', r)
       if (st.n >= this.limits.queueEnvelopes || st.b + envText.length > this.limits.queueBytes) { full++; continue }
+      if (this.disk && !this.disk.ok(envText.length)) { full++; continue }       // the relay's disk is nearly full
       const now = this.now()
       this.store.run('qAdd', r, me.acct, me.addr, id, envText, envText.length, now, now + ttlMs)
       queued++

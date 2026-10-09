@@ -100,12 +100,15 @@ location / {
 | `dataDir` | `/var/lib/pocket-relay` | 证书、认领关系、索引数据库、对象、附件。 |
 | `blobs` | `{"store": "disk"}` | 附件放硬盘,或 `{"store": "s3", "backends": [...]}`(见下)。 |
 | `timezone` | `Asia/Shanghai` | 流量配额按哪个时区算日、月。 |
-| `quota.dayMB`、`quota.monthMB`、`quota.storeMB` | 不限 | 每个账号的附件流量和存储上限。 |
-| `quota.useTicketQuota` | `true` | 票据里带了上限就用票据里的。 |
+| `quota.dayMB`、`quota.monthMB` | 不限 | 每个账号的附件流量上限。 |
+| `quota.storeMB` | `5120` | 每个账号在这里最多存多少:会话和附件一起算。`null` 或 `0`:不限。 |
+| `quota.smallMB`、`quota.smallFileMB` | `50`、`2` | 当天或当月的流量用完后,不超过 `smallFileMB` 的文件(缩略图、语音)照样能传,每天最多 `smallMB`。设成 `0` 就不放行。 |
+| `quota.useTicketQuota` | `true` | 这个账号最新的票据里带了上限就用它的。 |
+| `disk.minFreeMB` | `5120` | 数据目录所在的硬盘至少留这么多空间。剩得比这少,中继就不再往这块盘上存新东西(回 `503 full`),别的照常。`0` 就是不管。 |
 | `retention.objectDays` | `30` | 这么久没写也没读的对象删掉。最近一周连过的电脑,会话列表保留。 |
-| `retention.blobDays` | `30` | 这么久没下载的附件删掉(从没下载过就从上传时算)。 |
+| `retention.blobDays` | `30` | 这么久没下载的附件删掉(从没下载过就从上传时算)。只读几个字节不算下载。 |
 | `retention.queueMaxSeconds` | `604800` | 信封最多等离线设备多久。 |
-| `limits` | 见 `src/config.mjs` | 大小和速率(帧 2 MiB、信封 1 MiB、每台设备 2 条连接……)。 |
+| `limits` | 见 `src/config.mjs` | 大小和速率(帧 2 MiB、登录前 64 KiB,信封 1 MiB、每台设备 2 条连接……)。 |
 
 ### S3 兼容的对象存储
 
@@ -116,7 +119,7 @@ location / {
     "pathStyle": false, "prefix": "pocket/" } ] }
 ```
 
-支持 AWS S3、Cloudflare R2、MinIO、腾讯云 COS、阿里云 OSS(S3 兼容接口,AWS Signature V4 预签名)。钥匙从你指定的环境变量里读,不写在文件里。新附件放到第一个 `when` 匹配上传者的后端:`cn-ip` 匹配 `cnIpFile` 里 CIDR 列表内的 IP(每行一个 CIDR、CIDR 的 JSON 数组,或 `{v4:[[start,end]…], v6:[…]}`),`default` 匹配所有人。桶连不上时附件先放在中继自己的硬盘上。对象名是 `<prefix><地址>/<附件编号>`,没有文件名、账号编号、内容类型。桶不用公开访问:上传链接一小时内有效,下载链接两分钟内有效。
+支持 AWS S3、Cloudflare R2、MinIO、腾讯云 COS、阿里云 OSS(S3 兼容接口,AWS Signature V4 预签名)。钥匙从你指定的环境变量里读,不写在文件里。新附件放到第一个 `when` 匹配上传者的后端:`cn-ip` 匹配 `cnIpFile` 里 CIDR 列表内的 IP(每行一个 CIDR、CIDR 的 JSON 数组,或 `{v4:[[start,end]…], v6:[…]}`),`default` 匹配所有人。桶连不上时附件先放在中继自己的硬盘上,桶正常时一个也不放。对象名是 `<prefix><地址>/<附件编号>`,没有文件名、账号编号、内容类型。桶不用公开访问:上传链接 15 分钟内有效,下载链接两分钟内有效。附件删掉之后上传链接留下的东西,中继会清掉。每个中继用自己的桶或 `prefix`。
 
 ## 运维
 
@@ -126,7 +129,7 @@ location / {
 - **升级**:`git pull && docker build -t pocket-relay . && docker rm -f pocket-relay`,再跑同样的 `docker run`。证书、认领关系和数据都在卷里,不受影响。
 - **日志**输出到标准输出:时间、中继编号、账号、设备地址、操作、大小、状态、耗时、客户端 IP。不记消息内容、票据、令牌、挑战、认领码、预签名地址、`Authorization` 头。
 - **健康检查**:`node src/main.mjs --health`(容器的健康检查)问的是 `/v1/info`;`GET /v1/health` 认领之后回 200(之前回 503 `unclaimed`)。`GET /v1/metrics`(只限本机回环):连接、队列、对象、附件的数量。
-- **数据**是密文缓存,丢了电脑会重新上传。只有证书(`tls/`)和认领关系(`binding.json`)补不回来,丢了就要在 App 里重新添加。删除立即生效(没有回收站)。硬盘占用受保留期限制。
+- **数据**是密文缓存,丢了电脑会重新上传。只有证书(`tls/`)和认领关系(`binding.json`)补不回来,丢了就要在 App 里重新添加。删除立即生效(没有回收站)。硬盘占用受保留期、每个账号的 `quota.storeMB` 和 `disk.minFreeMB` 限制:硬盘剩得太少时日志里出现 `disk-low`,中继先不收新数据,腾出空间后自己恢复。
 - **重启**会忘掉内存里的会话令牌,设备会自己重新登录中继。
 - **撤销名单**由协调服务器推来(`POST /v1/revocations`)、设备转交,或者中继自己去拉。被撤销的设备立即断开,被删除的设备的数据立即删掉。协调服务器签名的清除指令(`POST /v1/purge`)删掉一个账号或一台电脑的数据。
 

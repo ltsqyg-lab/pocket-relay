@@ -67,6 +67,11 @@ export function parseJson(buf, max) {
 }
 const isInt = (v, min = 0) => Number.isSafeInteger(v) && v >= min
 const isStr = (v, max = 4096) => typeof v === 'string' && v.length <= max
+/** Own-property lookup. Device ids, realm ids and epochs used as keys come from signed input: a plain `obj[key]` with
+ *  key "__proto__" reaches Object.prototype, and assigning through it pollutes every object in the process (a `policy`
+ *  statement with `admins: {"__proto__": true}` used to make `({}).admin === true`). Every keyed lookup into lock state
+ *  goes through this. */
+export const own = (o, k) => (o !== null && typeof o === 'object' && (typeof k === 'string' || typeof k === 'number') && Object.hasOwn(o, k) ? o[k] : undefined)
 
 // ============================================================================================================
 // 2. primitives (E2EE.md §3.2)
@@ -267,14 +272,14 @@ function checkAcl(acl, devices) {
   if (!acl || typeof acl !== 'object' || Array.isArray(acl)) fail('bad-acl')
   if (Object.keys(acl).some((k) => k !== 'phones' && k !== 'computers')) fail('bad-acl')
   const phones = acl.phones ?? {}, computers = acl.computers ?? {}
-  const isList = (v, kind) => v === '*' || (Array.isArray(v) && v.length <= 256 && v.every((x) => devices[x]?.kind === kind))
+  const isList = (v, kind) => v === '*' || (Array.isArray(v) && v.length <= 256 && v.every((x) => own(devices, x)?.kind === kind))
   for (const [id, r] of Object.entries(phones)) {
-    if (devices[id]?.kind !== 'phone' || !r || typeof r !== 'object') fail('bad-acl')
+    if (own(devices, id)?.kind !== 'phone' || !r || typeof r !== 'object') fail('bad-acl')
     if (Object.keys(r).some((k) => k !== 'computers' && k !== 'control')) fail('bad-acl')
     if (!isList(r.computers, 'computer') || (r.control !== undefined && typeof r.control !== 'boolean')) fail('bad-acl')
   }
   for (const [id, r] of Object.entries(computers)) {
-    if (devices[id]?.kind !== 'computer' || !r || typeof r !== 'object') fail('bad-acl')
+    if (own(devices, id)?.kind !== 'computer' || !r || typeof r !== 'object') fail('bad-acl')
     if (Object.keys(r).some((k) => k !== 'phones') || !isList(r.phones, 'phone')) fail('bad-acl')
   }
   return { phones, computers }
@@ -297,7 +302,7 @@ export function applyStatement(st, stmt) {
     if (L.by !== signer.id || signer.admin !== true) fail('bad-device')
   } else {
     if (op.type === 'genesis') fail('bad-op')
-    signer = st.devices[L.by]
+    signer = own(st.devices, L.by)
     if (!signer) fail('unknown-signer')
     if (signer.revoked) fail('revoked-signer')
   }
@@ -318,13 +323,13 @@ export function applyStatement(st, stmt) {
       if (!signer.admin) fail('not-admin')
       const dev = checkDevice(op.device)
       if (typeof op.sas !== 'boolean') fail('bad-op')
-      if (ns.devices[dev.id]) fail('dup-device')
+      if (own(ns.devices, dev.id)) fail('dup-device')
       if (Object.values(ns.devices).some((x) => !x.revoked && x.addr === dev.addr)) fail('dup-addr')
       addDevice(dev, { sas: op.sas })
       break
     }
     case 'revoke': {
-      const t = ns.devices[op.device]
+      const t = typeof op.device === 'string' && DID_RE.test(op.device) ? own(ns.devices, op.device) : undefined
       if (!t || t.revoked) fail('bad-target')
       if (!signer.admin && L.by !== op.device) fail('not-admin')
       if (op.reason !== undefined && !isStr(op.reason, 64)) fail('bad-op')
@@ -338,8 +343,9 @@ export function applyStatement(st, stmt) {
       if (op.admins !== undefined) {
         if (!op.admins || typeof op.admins !== 'object') fail('bad-acl')
         for (const [id, v] of Object.entries(op.admins)) {
-          if (!ns.devices[id] || ns.devices[id].revoked || typeof v !== 'boolean') fail('bad-acl')
-          ns.devices[id].admin = v
+          const d = DID_RE.test(id) ? own(ns.devices, id) : undefined
+          if (!d || d.revoked || typeof v !== 'boolean') fail('bad-acl')
+          d.admin = v
         }
       }
       if (liveAdmins(ns) < 1) fail('last-admin')
@@ -347,12 +353,13 @@ export function applyStatement(st, stmt) {
     }
     case 'realm': {
       if (L.by !== op.realm || signer.kind !== 'computer') fail('not-owner')
-      const cur = ns.realms[op.realm]?.epoch ?? 0
+      const prev = own(ns.realms, op.realm)
+      const cur = prev?.epoch ?? 0
       if (op.epoch !== cur + 1) fail('bad-epoch')
       if (!isStr(op.kid, 22)) fail('bad-op')
       unb64u(op.kid, 16)
       if (!['init', 'revoke', 'acl', 'rotate', 'reset'].includes(op.reason)) fail('bad-op')
-      ns.realms[op.realm] = { epoch: op.epoch, kids: { ...(ns.realms[op.realm]?.kids ?? {}), [op.epoch]: op.kid } }
+      ns.realms[op.realm] = { epoch: op.epoch, kids: { ...(prev?.kids ?? {}), [op.epoch]: op.kid } }
       break
     }
     default: fail('bad-op')
@@ -372,9 +379,9 @@ export function isResetOf(newGenesisStmt, known) {
 
 /** ACL evaluation (E2EE.md §7.2). Only live phone -> live computer pairs ever have access. */
 export function access(st, phoneId, computerId) {
-  const p = st.devices[phoneId], c = st.devices[computerId]
+  const p = own(st.devices, phoneId), c = own(st.devices, computerId)
   if (!p || !c || p.revoked || c.revoked || p.kind !== 'phone' || c.kind !== 'computer') return { read: false, control: false }
-  const pr = st.acl.phones[phoneId], cr = st.acl.computers[computerId]
+  const pr = own(st.acl.phones, phoneId), cr = own(st.acl.computers, computerId)
   const read = (!pr || pr.computers === '*' || pr.computers.includes(computerId)) && (!cr || cr.phones === '*' || cr.phones.includes(phoneId))
   return { read, control: read && (!pr || pr.control !== false) }
 }
@@ -397,7 +404,7 @@ export function openGrant(g, { lock, self }) {
   const H = parseJson(g.h, 4096)
   if (H.v !== 1 || H.t !== 'grant' || !Array.isArray(H.epochs) || H.epochs.length < 1 || H.epochs.length > 1000) fail('bad-header')
   if (H.to !== self.id || H.toKx !== self.kx) fail('not-for-me')
-  const by = lock.devices[H.by], realm = lock.devices[H.realm]
+  const by = own(lock.devices, H.by), realm = own(lock.devices, H.realm)
   if (!by) fail('unknown-sender')
   if (by.revoked) fail('revoked-sender')
   if (!realm || realm.revoked || realm.kind !== 'computer') fail('bad-realm')
@@ -407,11 +414,11 @@ export function openGrant(g, { lock, self }) {
   const ikm = Buffer.concat([ecdh(self.kxPriv, eph), eph, myKx])
   const pt = parseJson(openWith(ikm, 'grant', g.h, g.c), 1048576)
   if (pt.realm !== H.realm || !Array.isArray(pt.keys) || pt.keys.length !== H.epochs.length) fail('bad-grant')
-  const kids = lock.realms[H.realm]?.kids ?? {}
+  const kids = own(lock.realms, H.realm)?.kids ?? {}
   const out = {}
   pt.keys.forEach((k, i) => {
     const key = unb64u(k.key, 32)
-    if (H.epochs[i].epoch !== k.epoch || H.epochs[i].kid !== kidOf(key) || kids[k.epoch] !== kidOf(key)) fail('bad-kid')
+    if (!isInt(k.epoch, 1) || H.epochs[i].epoch !== k.epoch || H.epochs[i].kid !== kidOf(key) || own(kids, k.epoch) !== kidOf(key)) fail('bad-kid')
     out[k.epoch] = key
   })
   return { realm: H.realm, keys: out }

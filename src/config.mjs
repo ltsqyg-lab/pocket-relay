@@ -7,7 +7,9 @@ import fs from 'node:fs'
 import { validKeyRecord } from './proto.mjs'
 
 export const DEFAULT_LIMITS = {
-  frame: 2 * 1024 * 1024,              // WebSocket message
+  frame: 2 * 1024 * 1024,              // WebSocket message, once the socket is authenticated
+  authFrame: 64 * 1024,                // WebSocket message before that (an auth frame is ~15 KB)
+  unauthSockets: 1000,                 // sockets not authenticated yet, all clients together (then 503)
   envelope: 1024 * 1024,               // envelope ciphertext (plus the 16-byte tag)
   header: 4096,                        // seal header
   frameBurst: 50,                      // frames per connection: burst
@@ -49,7 +51,12 @@ export const DEFAULTS = {
   dataDir: '/var/lib/pocket-relay',
   blobs: { store: 'disk' },
   timezone: 'Asia/Shanghai',
-  quota: { dayMB: null, monthMB: null, storeMB: null, useTicketQuota: true },
+  // storeMB: what one account may keep here, session data and attachments together (null / 0 = unlimited).
+  // smallMB: once the day or month is used up, blobs of at most smallFileMB of plaintext (thumbnails, voice clips)
+  // still go through, up to this many MB a day (0 = no allowance). Tickets may carry their own caps (RELAY.md §8.3).
+  quota: { dayMB: null, monthMB: null, storeMB: 5120, smallMB: 50, smallFileMB: 2, useTicketQuota: true },
+  // below this much free space on the data directory's disk nothing new is stored there (503 full, RELAY.md §8.4)
+  disk: { minFreeMB: 5120 },
   retention: { objectDays: 30, blobDays: 30, queueMaxSeconds: 604800, tombstoneDays: 30, sweepMinutes: 60 },
   limits: {},
   log: { format: 'text' },
@@ -193,6 +200,11 @@ export function finalize(input) {
     cfg.publicUrl = u.href.replace(/\/+$/, '')
   }
   cfg.limits = merge(structuredClone(DEFAULT_LIMITS), isObj(cfg.limits) ? cfg.limits : {})
+  const minFree = isObj(cfg.disk) ? cfg.disk.minFreeMB : undefined
+  if (minFree !== null && minFree !== undefined && !(typeof minFree === 'number' && Number.isFinite(minFree) && minFree >= 0)) {
+    bad('disk.minFreeMB must be a number of megabytes (0 = no minimum)')
+  }
+  cfg.disk = { minFreeMB: minFree ?? 0 }
   const blobs = isObj(cfg.blobs) ? cfg.blobs : { store: 'disk' }
   if (blobs.store === 's3') {
     if (!Array.isArray(blobs.backends) || !blobs.backends.length) bad('blobs.backends must list at least one S3 backend')

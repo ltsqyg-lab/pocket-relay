@@ -420,8 +420,9 @@ The demo account's only admin is the demo computer on the server (COORD §15): i
 it. When enrollment answers `demo: true`, B adds the code it shows to its offers (`demoCode`) and the demo computer runs
 A with it; B's side is unchanged (it checks `cA`, pins `G`, sends `cB`), and the `add` carries `sas: true` like any other.
 On this one account the code passes through coordination by design, which is acceptable only because the account holds
-sample data. A client MUST send `demoCode` only when coordination says `demo: true` **and** the account the user signed
-in with is the review account built into the client: otherwise a malicious coordination
+sample data. Only phones send `demoCode`; computers never do and ignore `demo: true` (reviewers use only a phone, and
+the demo computer runs on the server). A phone MUST send `demoCode` only when coordination says `demo: true` **and** the
+account the user signed in with is the review account built into the client: otherwise a malicious coordination
 server could answer `demo: true` for a real account, learn the code and run A itself — the very attack the pairing
 exists to stop.
 
@@ -727,15 +728,29 @@ BlobRef = { "blob": "<b64u 16 B>", "key": "<b64u FK>", "sha": "<hex SHA-256 of t
             "name": "shot.png", "mime": "image/png" }
 attachment block = { "kind": "attachment", "name", "mime", "bytes", "sha", "blob", "key",
                      "thumb"?: { "blob", "key", "bytes", "sha" } }        // thumb is always image/jpeg
+not uploaded     = { "kind": "attachment", "name", "mime", "bytes", "skip": "large" }   // no sha, blob or key
 ```
 The key travels only inside a signed, encrypted message or command, so the relay holds ciphertext without any way to
 open it. `sha` stays the plaintext hash so the App's local cache keeps working; it is visible only to key holders.
+
+Computers upload the files their sessions produce automatically only up to **20 MiB** (the limit for files sent from the
+phone); a larger one appears as the `skip: "large"` block: name, type and size only, nothing to download (the App shows
+"too large, not sent to the phone"). Readers MUST treat any block with `skip` as not downloadable and ignore unknown
+`skip` values the same way.
+
+**Upload order and quota.** A computer uploads one blob at a time and picks the next by priority: thumbnails, then
+blobs of at most 2 MiB, then larger ones; within each, the newest message first. After pairing or a relay change it
+waits for the first sync to queue its blobs (at most 20 s) before it starts, so a quota that runs short goes to the
+recent pictures first. When the relay answers `429 quota` (RELAY.md §8.3) the computer stops sending large blobs until
+`Retry-After` and keeps sending small ones (the relay's small-file allowance); when a small one is refused too, it waits
+for all. Waiting blobs are not failures (no retry count, never given up). A renewed ticket whose `quota` differs, or
+another relay, ends the wait at once.
 
 ### 11.5 Thumbnails
 Computers make thumbnails (≤ 1280 px JPEG, quality 72, for bitmap images ≥ 150 KB the platform can decode, skipped if
 not at least 10 % smaller — today's rules) **before** encryption: macOS with `sips`, Windows with GDI+ in the console
 helper (PNG, JPEG, GIF, BMP, TIFF; no WebP/HEIC there). The server no longer makes thumbnails (it cannot see images).
-Thumbnails upload before the original.
+Thumbnails upload before the original (an original waits up to 15 s for its thumbnail being made).
 
 ### 11.6 Uploads from the phone
 When a phone sends files with a command, it uploads each as a blob into the target computer's realm (it has the realm
@@ -763,14 +778,17 @@ Short-lived permission for one device to use one relay (or one ASR gateway):
 { "v": 1, "t": "ticket", "kid": "c1", "iss": "pocket.pocketcli.net", "aud": "<relayId | asr:<gatewayId>>",
   "acct": "<account>", "dev": "<did>", "addr": "100.x.y.z", "kind": "phone" | "computer",
   "sig": "<the device's signing public key>", "peers": ["<addr>", …], "iat": …, "exp": …,
-  "quota"?: { "dayMB": 200, "monthMB": 2048, "storeMB": 0 } }
+  "quota"?: { "dayMB": 200, "monthMB": 2048, "smallMB": 50, "storeMB": 5120 }, "asrQuota"?: { "dayMin": 120, "monthMin": 1500 } }
 ```
 Compact form `b64u(payload).b64u(sig)`, label `ticket`. Verification (reference `verifyTicket`): signature by a key
 with `use: ticket` (`unknown-key`, `key-not-valid`, `bad-sig`); `aud` equals the verifier's id (`wrong-aud`);
 `exp − iat ≤ 24 h` (`bad-ticket`; coordination issues 6 h); `iat − 5 min ≤ now ≤ exp + 5 min` (`expired`); a relay bound
 to one account checks `acct` (`wrong-account`); well-formed `addr`, `dev`, `kind`, `peers`, `sig` (`bad-ticket`).
 A ticket is useless without the device's private key (§13). Coordination issues tickets only to live, unsuspended
-devices of the lock and computes `peers` from the ACL (`read` relations). Vectors: `coord.ticket`.
+devices of the lock and computes `peers` from the ACL (`read` relations). `quota` (official relays only): attachment
+traffic caps, the small-file allowance and the stored-bytes cap (0 = unlimited); a relay applies the caps of the account's
+newest ticket to all its devices (RELAY.md §8.3). `asrQuota` (tickets for the official ASR gateway only): minutes of audio
+the account may have recognized per day and per month (0 = unlimited; COORD.md §16). Vectors: `coord.ticket`.
 
 ### 12.3 Netmap
 What coordination tells a device about its account (label `netmap`, COORD.md §8): devices with `addr`, keys, status

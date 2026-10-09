@@ -1,5 +1,6 @@
 // Relay index: SQLite (node:sqlite) for identities seen, revocation cut-offs, realms, objects, queued envelopes,
-// blobs and traffic counters (RELAY.md §8.1). Object and blob bodies live in files next to it.
+// blobs, presigned uploads handed out, traffic counters and each account's newest ticket quota (RELAY.md §8.1).
+// Object and blob bodies live in files next to it.
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import fs from 'node:fs'
@@ -38,7 +39,10 @@ CREATE TABLE IF NOT EXISTS blobs (
   PRIMARY KEY (realm, blob));
 CREATE INDEX IF NOT EXISTS blobs_acct ON blobs (acct);
 CREATE INDEX IF NOT EXISTS blobs_state ON blobs (state, expires);
+CREATE TABLE IF NOT EXISTS presigns (realm TEXT NOT NULL, blob TEXT NOT NULL, backend TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (realm, blob, backend));
+CREATE INDEX IF NOT EXISTS presigns_at ON presigns (at);
 CREATE TABLE IF NOT EXISTS traffic (acct TEXT NOT NULL, period TEXT NOT NULL, bytes INTEGER NOT NULL, PRIMARY KEY (acct, period));
+CREATE TABLE IF NOT EXISTS acct_quota (acct TEXT PRIMARY KEY, iat INTEGER NOT NULL, quota TEXT);
 CREATE TABLE IF NOT EXISTS rev_cursor (acct TEXT PRIMARY KEY, cursor INTEGER NOT NULL, at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS purges (id TEXT PRIMARY KEY, at INTEGER NOT NULL);
 `
@@ -97,6 +101,8 @@ export class Store {
     p('objOfRealm', 'SELECT kind, key, seq, del FROM objects WHERE realm = ?')
     p('objDelRealm', 'DELETE FROM objects WHERE realm = ?')
     p('objCountRealm', 'SELECT COUNT(*) AS n FROM objects WHERE realm = ? AND del = 0')
+    // stored bytes of an account's objects (RELAY.md §8.3; deletion markers have 0 bytes)
+    p('objBytesOfAcct', 'SELECT COALESCE(SUM(o.bytes), 0) AS b FROM realms r JOIN objects o ON o.realm = r.realm WHERE r.acct = ? AND o.del = 0')
     // stale = neither written nor read since the cut-off; the session list, info and usage of a computer seen in the
     // last week are kept (RELAY.md §8.2)
     p('objStale', `SELECT realm, kind, key, seq FROM objects WHERE del = 0 AND at < ? AND last_read < ?
@@ -127,11 +133,20 @@ export class Store {
     p('blobDead', `SELECT * FROM blobs WHERE state = 'dead' LIMIT 1000`)
     p('blobMarkDead', `UPDATE blobs SET state = 'dead' WHERE realm = ? AND blob = ?`)
     p('blobActiveRes', `SELECT COUNT(*) AS n FROM blobs WHERE uploader = ? AND state = 'reserved' AND created > ?`)
+    // presigned PUTs handed out, watched for a day: an upload that lands after its blob row is gone is deleted (§9)
+    p('presignPut', `INSERT INTO presigns (realm, blob, backend, at) VALUES (?, ?, ?, ?) ON CONFLICT (realm, blob, backend) DO UPDATE SET at = excluded.at`)
+    p('presignDue', 'SELECT realm, blob, backend, at FROM presigns WHERE at < ? ORDER BY at LIMIT ?')
+    p('presignDel', 'DELETE FROM presigns WHERE realm = ? AND blob = ? AND backend = ?')
     // traffic, revocation cursors, purges
     p('trafAdd', `INSERT INTO traffic (acct, period, bytes) VALUES (?, ?, ?) ON CONFLICT (acct, period) DO UPDATE SET bytes = bytes + excluded.bytes`)
     p('trafGet', 'SELECT bytes FROM traffic WHERE acct = ? AND period = ?')
     p('trafDelAcct', 'DELETE FROM traffic WHERE acct = ?')
     p('trafOld', 'DELETE FROM traffic WHERE period < ?')
+    // the newest ticket seen per account: its quota applies to every device of the account (RELAY.md §8.3)
+    p('acctQuotaGet', 'SELECT iat, quota FROM acct_quota WHERE acct = ?')
+    p('acctQuotaPut', `INSERT INTO acct_quota (acct, iat, quota) VALUES (?, ?, ?)
+      ON CONFLICT (acct) DO UPDATE SET iat = excluded.iat, quota = excluded.quota WHERE excluded.iat > acct_quota.iat`)
+    p('acctQuotaDel', 'DELETE FROM acct_quota WHERE acct = ?')
     p('curGet', 'SELECT cursor FROM rev_cursor WHERE acct = ?')
     p('curSet', 'INSERT INTO rev_cursor (acct, cursor, at) VALUES (?, ?, ?) ON CONFLICT (acct) DO UPDATE SET cursor = excluded.cursor, at = excluded.at')
     p('purgeSeen', 'SELECT at FROM purges WHERE id = ?')

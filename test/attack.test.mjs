@@ -177,7 +177,7 @@ test('§5-13 S3 downloads: a 302 charges the whole object whatever the Range, an
   t.after(() => r.stop())
   await r.relay.blobs.probe()
   const mac = device('computer'), phone = device('phone')
-  const quota = { dayMB: 1, monthMB: 100 }
+  const quota = { dayMB: 1, monthMB: 100, smallMB: 0 }      // no small-file allowance here; with one, see below
   const M = api(r, await httpToken(r, coord, mac, { peers: [phone.addr], quota }))
   const id = crypto.randomBytes(16), ct = ref.encryptBlob(crypto.randomBytes(32), id, crypto.randomBytes(300 * 1024))
   const base = `/v1/b/${mac.addr}/${b64u(id)}`
@@ -195,6 +195,13 @@ test('§5-13 S3 downloads: a 302 charges the whole object whatever the Range, an
   const codes = []
   for (let i = 0; i < 4; i++) codes.push((await M.get(base, { range: 'bytes=0-0' })).status)
   assert.deepEqual(codes, [302, 429, 429, 429])
+  // the small-file allowance (this blob is small) is charged the same way: 1 MB more buys three more 302s, not more
+  const M2 = api(r, await httpToken(r, coord, mac, { peers: [phone.addr], quota: { ...quota, smallMB: 1 }, iat: Date.now() + 1000 }))
+  const more = []
+  for (let i = 0; i < 5; i++) more.push((await M2.get(base, { range: 'bytes=0-0' })).status)
+  assert.deepEqual(more, [302, 302, 302, 429, 429])
+  const q = await (await M2.get('/v1/me/quota')).json()
+  assert.equal(q.small.used, 3 * ct.length, 'each 302 charged the stored size to the allowance')
 })
 
 test('§5-13 malformed input: WebSocket frames, HTTP paths and bodies never crash the relay or escape its data directory', async (t) => {

@@ -10,6 +10,7 @@ const WRITE_BUFFER_MAX = 16 * 1024 * 1024
 /**
  * Finish an HTTP upgrade and return a connection object:
  *   ws.send(obj) · ws.close(code, reason) · ws.ping() · ws.onMessage(obj) · ws.onClose(code) · ws.alive · ws.lastSeen
+ *   ws.maxMessage (may be raised later: a socket gets the full size once it is authenticated)
  * Oversized messages close with `tooLargeCode`, binary or non-JSON messages with `malformedCode`.
  */
 export function upgrade(req, socket, head, { maxMessage = 2 * 1024 * 1024, tooLargeCode = 4413, malformedCode = 4400 } = {}) {
@@ -32,6 +33,7 @@ function attach(socket, { maxMessage, tooLargeCode, malformedCode }) {
     alive: true,
     lastSeen: Date.now(),
     closeCode: 0,
+    maxMessage,
     onMessage: () => {},
     onClose: () => {},
     send(obj) {
@@ -93,7 +95,7 @@ function attach(socket, { maxMessage, tooLargeCode, malformedCode }) {
       else if (len === 127) {
         if (avail < 10) break
         const L = buf.readBigUInt64BE(pos + 2)
-        if (L > BigInt(maxMessage)) return ws.close(tooLargeCode, 'too-large')
+        if (L > BigInt(ws.maxMessage)) return ws.close(tooLargeCode, 'too-large')
         len = Number(L); off = 10
       }
       if (!masked) return ws.close(1002, 'unmasked')
@@ -102,7 +104,7 @@ function attach(socket, { maxMessage, tooLargeCode, malformedCode }) {
       if (!ctrl) {
         if (op === 0x1 || op === 0x2) { if (frags.length) return ws.close(1002, 'interleaved'); fragOp = op }
         else if (op !== 0x0 || !frags.length && !fragOp) return ws.close(1002, 'opcode')
-        if (fragLen + len > maxMessage) return ws.close(tooLargeCode, 'too-large')
+        if (fragLen + len > ws.maxMessage) return ws.close(tooLargeCode, 'too-large')
         if (frags.length >= MAX_FRAGS) return ws.close(tooLargeCode, 'too-large')
       }
       const hdr = off + 4

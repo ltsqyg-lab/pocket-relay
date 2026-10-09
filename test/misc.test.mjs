@@ -49,7 +49,7 @@ test('HTTP auth: challenge is single use and expires; info, well-known, health, 
   assert.equal((await tfetch(`${r.base}/v1/nothing`)).status, 404)
   // the quota endpoint for the token holder
   const q = await (await api(r, ok.token).get('/v1/me/quota')).json()
-  assert.deepEqual(Object.keys(q), ['day', 'month', 'store'])
+  assert.deepEqual(Object.keys(q), ['day', 'month', 'small', 'store'])
 })
 
 test('configuration: file with comments, environment overrides, validation errors', (t) => {

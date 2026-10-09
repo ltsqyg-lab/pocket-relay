@@ -1,7 +1,10 @@
 # Pocket relay — protocol and behaviour v1
 
 Status: implementation spec, phase 1 (2026-10-08); §12.1 (relays without a domain: self-signed certificate, pin,
-claim) added 2026-10-09. License of the relay implementation: **AGPL-3.0**.
+claim) added 2026-10-09; storage limits after the 2026-10-09 security review (stored bytes for objects and blobs,
+§8.3; free disk space, §8.4; no direct uploads past a bucket, §6.4; renewal by real downloads, §8.2; 15-minute presigned
+PUTs and their late uploads swept, §9; small frames before authentication, §3.1). License of the relay implementation:
+**AGPL-3.0**.
 Crypto, identifiers and verification rules come from [E2EE.md](E2EE.md); this document defines what a relay stores,
 which requests it accepts and how it answers. Paths below are relative to the relay's **base URL**
 (official relay: `https://pocket.pocketcli.net/relay`; a self-hosted relay: the base URL of its connection line, §12.1).
@@ -49,7 +52,9 @@ environment variable `RELAY_<UPPER_SNAKE>`; secrets SHOULD come from the environ
   "dataDir": "/var/lib/pocket-relay",
   "blobs": { "store": "disk" },             // or { "store": "s3", "backends": [ … ] } — §9
   "timezone": "Asia/Shanghai",              // day/month boundaries for traffic quotas
-  "quota": { "dayMB": null, "monthMB": null, "storeMB": null, "useTicketQuota": true },
+  "quota": { "dayMB": null, "monthMB": null, "storeMB": 5120,   // §8.3
+             "smallMB": 50, "smallFileMB": 2, "useTicketQuota": true },
+  "disk": { "minFreeMB": 5120 },            // §8.4
   "retention": { "objectDays": 30, "blobDays": 30, "queueMaxSeconds": 604800 },
   "limits": { }                             // overrides of §10
 }
@@ -71,7 +76,10 @@ learns its address from coordination (§12.1).
 ## 3. Authentication
 
 ### 3.1 WebSocket
-`GET /v1/ws` upgrades without credentials. The relay immediately sends a challenge; the device has 10 s to answer.
+`GET /v1/ws` upgrades without credentials. The relay immediately sends a challenge; the device has 10 s to answer
+(then close 4408). Until `ready` a socket may send frames of at most 64 KiB (`limits.authFrame`; an `auth` frame is
+about 15 KB; more closes 4413), and at most 1000 such sockets (`limits.unauthSockets`, all clients together) are open
+at once: beyond that the upgrade is answered `503` with `Retry-After: 5`. The full frame size (§5) comes with `ready`.
 
 ```json
 relay → device  { "t": "challenge", "relay": "hk1", "nonce": "<b64u 16 random bytes>", "ts": 1791417600000 }
@@ -151,7 +159,7 @@ part of the threat model (E2EE §2), not a way to read or forge anything.
 
 ## 5. WebSocket protocol
 
-Frames are JSON text, at most 2 MiB each. After `ready`, either side may send at any time.
+Frames are JSON text, at most 2 MiB each (64 KiB before `ready`, §3.1). After `ready`, either side may send at any time.
 
 ### 5.1 Frames from the device
 | `t` | Fields | Meaning |
@@ -174,7 +182,8 @@ Then for each recipient address:
 
 The relay answers the sender: `{"t":"sent","id":…,"status":S,"n":<delivered>,"queued":<count>}` with
 `S` = `delivered` (all recipients got it now), `partial` (some delivered, some queued), `queued`, `offline`, `denied`,
-`too-large`, `rate`, `full` (recipient queue full) or `quota`.
+`too-large`, `rate`, `full` (recipient queue full, or the relay's disk nearly full, §8.4: nothing is queued then, live
+delivery goes on) or `quota`.
 
 Queues: FIFO per recipient; envelopes from one sender stay in order. At most 1000 envelopes and 32 MiB per recipient
 (over that: `full`). On authentication the relay sends the recipient's queue in order as `msg` frames carrying `q`; the
@@ -198,7 +207,7 @@ counter (§6.3). With `sub.since` the relay first replays changes after that `re
 ### 5.5 Keep-alive and close codes
 The relay pings every 30 s and closes connections silent for 90 s. Close codes: 4400 malformed, 4401 auth failed or
 expired, 4403 revoked or not allowed (reason `unclaimed`: the relay was unbound, §12.1), 4408 no `auth` within 10 s,
-4409 replaced by a newer socket, 4413 frame too large, 4429 rate limited. Other errors on a live socket are frames: `{"t":"error","code":…,"id"?:…}`. Frames the relay
+4409 replaced by a newer socket, 4413 frame too large (over 64 KiB before `ready`), 4429 rate limited. Other errors on a live socket are frames: `{"t":"error","code":…,"id"?:…}`. Frames the relay
 sends before closing: `replaced` (4409), `expired` (4401), `revoked` (4403). A `sub` naming realms the ticket cannot
 read is answered `{"t":"error","code":"denied","realms":[…]}` and the readable rest is subscribed.
 
@@ -215,6 +224,9 @@ HTTP status of §14. Clients translate codes into their own sentences.
 - `POST /v1/claim` — §12.1.
 - `GET /v1/health` → `{ "ok": true, "version" }`; 503 `unclaimed` before a claim.
 
+`version` is major.minor only (`"0.2"`), so the exact build is not advertised; clients go by `features` and never by
+the version. `--version` on the command line prints the full one.
+
 While a relay is unclaimed (§12.1) it answers only `GET /v1/info`, `GET /.well-known/pocket-relay` and `POST /v1/claim`:
 every other request (`/v1/health` included) and the WebSocket upgrade get `503 {"error":"unclaimed","code":"unclaimed"}`.
 
@@ -227,7 +239,7 @@ Objects are binary seals (`application/x-pocket-seal`, E2EE §3.5). `{realm}` is
 
 | Request | Who | Behaviour |
 |---|---|---|
-| `PUT /v1/o/{realm}/{kind}/{key}[/{seq}]` + `X-Pocket-Ver: <int>` | owner | Store if `ver` is greater than the stored version (else `409 {"error":"ver","ver":<stored>}`). Size ≤ the kind's limit + 4096 + 88 bytes (header, tag and framing). The relay parses the seal header and rejects (`400 mismatch`) a header whose `realm` or `by` is not the ticket's did, or whose `kind`, `key`, `seq` or `ver` (= `X-Pocket-Ver`) disagree with the request. Answer `{ "ver", "rev" }`; bump the realm `rev`; notify (§5.4). |
+| `PUT /v1/o/{realm}/{kind}/{key}[/{seq}]` + `X-Pocket-Ver: <int>` | owner | Store if `ver` is greater than the stored version (else `409 {"error":"ver","ver":<stored>}`). Size ≤ the kind's limit + 4096 + 88 bytes (header, tag and framing). The relay parses the seal header and rejects (`400 mismatch`) a header whose `realm` or `by` is not the ticket's did, or whose `kind`, `key`, `seq` or `ver` (= `X-Pocket-Ver`) disagree with the request. What the account stores grows by the difference to the version replaced: over `storeMB` → `429 quota` (§8.3; a version that is not larger always goes); disk nearly full → `503 full` (§8.4). With a `Content-Length` both are answered from the headers, before the body is read (clients wait `Retry-After` before trying again). Answer `{ "ver", "rev" }`; bump the realm `rev`; notify (§5.4). |
 | `GET` same path | reader | The seal, with `X-Pocket-Ver` and `ETag: "<ver>"`; `If-None-Match` → 304. |
 | `DELETE /v1/o/{realm}/{kind}/{key}[/{seq}]` | owner | Without `{seq}` on `msg`/`lite`: delete every seq of that key. Bumps `rev`, notifies. |
 | `GET /v1/o/{realm}?since=<rev>&kinds=info,usage,sess&limit=500&inline=65536` | reader | Changes after `rev`, ordered by `rev`: `{ "rev": <current>, "more": bool, "full"?: true, "items": [ {kind, key, seq?, ver, bytes, at, rev, del?, seal?} ] }` — `seal` (b64u binary seal) included when `bytes ≤ inline`. Several writes of one object since `rev` collapse into its latest version. A deletion is an item with `del: true` (no `seq` when a whole `msg` key was deleted). `full: true` means the list is complete — `since=0`, or `since` older than the deletion markers the relay still keeps (30 days) — and the reader drops cached objects of those kinds that are not listed. |
@@ -241,21 +253,30 @@ Blob bodies are `PKB1` streams (E2EE §11.2), `application/octet-stream`. `{blob
 
 | Request | Who | Behaviour |
 |---|---|---|
-| `POST /v1/b/{realm}/{blobId}/upload` `{ "bytes": n }` | writer | Reserve. `bytes` is the length of the encrypted `PKB1` stream (22 + plaintext + 16·⌈plaintext/65536⌉). `409 {"error":"exists"}` if present. Quota checked against `bytes` now (`429 quota`). Answer `{ "mode": "presigned", "url", "method": "PUT", "headers": {"Content-Length": "<n>"}, "expires" }` (S3 store; the length is signed into the URL, send the header as given) or `{ "mode": "direct" }`. |
-| `PUT /v1/b/{realm}/{blobId}` | writer | Direct upload; `Content-Length` required and equal to the reserved `bytes`; ≤ 100 MiB + 22 + 16·⌈n/65536⌉. A PUT without a reservation is accepted and reserved on the spot (disk store). The relay checks the 22-byte header (magic, version, chunk size, blob id) and the length formula. |
-| `POST /v1/b/{realm}/{blobId}/commit` `{ "bytes": n }` | writer | Presigned mode: the relay HEADs the bucket object; size must equal the reservation (else it deletes the object, `409 size`). Charges traffic. |
-| `GET /v1/b/{realm}/{blobId}` | reader | Disk: 200 with the bytes, `Range` supported (single range), charged by the bytes sent. S3: `302` to a presigned GET valid 2 minutes (the client follows **without** its `Authorization` header, at once; a download that started keeps going after the expiry); charged the **stored size** whatever `Range` was asked — the URL serves the whole object and can be replayed until it expires. |
+| `POST /v1/b/{realm}/{blobId}/upload` `{ "bytes": n }` | writer | Reserve. `bytes` is the length of the encrypted `PKB1` stream (22 + plaintext + 16·⌈plaintext/65536⌉). `409 {"error":"exists"}` if present; `429 rate` while a direct upload of the same blob is under way. Quota checked against `bytes` now (`429 quota`, §8.3: traffic, with the small-file allowance, and stored bytes — a reservation counts as stored). Answer `{ "mode": "presigned", "url", "method": "PUT", "headers": {"Content-Length": "<n>"}, "expires" }` (S3 store; the URL is valid **15 minutes**, the upload must start within them; the length is signed into the URL, send the header as given) or `{ "mode": "direct" }` (no bucket, or the bucket unreachable now; `503 full` when the relay's disk is nearly full, §8.4). |
+| `PUT /v1/b/{realm}/{blobId}` | writer | Direct upload; `Content-Length` required and equal to the reserved `bytes`; ≤ 100 MiB + 22 + 16·⌈n/65536⌉. **With a bucket configured** only a live reservation in mode `direct` can be filled this way; anything else — no reservation, an expired one, a presigned one — is `403 denied`, so nothing reaches the relay's disk while the bucket works. **Without a bucket** a PUT without a (live) reservation is reserved on the spot, with the reservation's checks. `503 full` when the disk is nearly full. The relay checks the 22-byte header (magic, version, chunk size, blob id) and the length formula; if the reservation is gone when the last byte arrives (deleted, purged), the bytes are dropped (`404`). |
+| `POST /v1/b/{realm}/{blobId}/commit` `{ "bytes": n }` | writer | Presigned mode: the relay HEADs the bucket object — its size must equal the reservation — and reads its first 22 bytes, which must be the header of this blob; otherwise it deletes the object (`409 size`, `400 bad-blob`). Charges traffic. |
+| `GET /v1/b/{realm}/{blobId}` | reader | Disk: 200 with the bytes, `Range` supported (single range), charged by the bytes sent. S3: `302` to a presigned GET valid 2 minutes (the client follows **without** its `Authorization` header, at once; a download that started keeps going after the expiry); charged the **stored size** whatever `Range` was asked — the URL serves the whole object and can be replayed until it expires. What counts as a download for retention: §8.2. |
 | `HEAD /v1/b/{realm}/{blobId}` | reader | Size only; free. |
 | `DELETE /v1/b/{realm}/{blobId}` | owner or uploader | Delete. |
 
-Unfinished reservations expire after 1 hour (their bucket objects are deleted).
+Unfinished reservations expire after 1 hour (their bucket objects are deleted; a direct upload still coming in keeps
+its reservation until it ends). Uploads that land in the bucket after their blob is gone are swept (§9).
 
 ### 6.5 Control
 | Request | Body | Behaviour |
 |---|---|---|
 | `POST /v1/revocations` | signed revocation document (E2EE §12.4) | Verify, apply (§3.3); `{ "applied": n }`. No token needed. |
 | `POST /v1/purge` | signed purge order (E2EE §12.5) | Verify; if `relay` is this relay or `"*"` and `at` within 7 days and not seen before, delete everything for the account (or the listed realms); `{ "deleted": {objects, blobs, queued} }`. An order already applied answers `200 {"already": true}` (so the sender's retry queue stops). No token needed. |
-| `GET /v1/me/quota` | — | `{ "day": {used, cap}, "month": {used, cap}, "store": {used, cap} }` for the caller's account (bytes; `cap` 0 = unlimited). |
+| `GET /v1/me/quota` | — | `{ "day": {used, cap}, "month": {used, cap}, "small": {used, cap, file}, "store": {used, cap} }` for the caller's account (bytes; `cap` 0 = unlimited, except `small.cap` 0 = no allowance; `small.file` = the largest blob that counts as small; `store.used` = objects and blobs together), §8.3. |
+
+The two control documents are open to anyone because their **coordination signature is the authorization**: a
+revocation document counts only when it verifies under a coordination key whose `use` includes `revocations`, a purge
+order only under one with `purge` (label, `kid`, the key's validity and the signature, E2EE §12). Anything else changes
+nothing: `400 bad-format` (not the document's label, e.g. a ticket), `401 bad-sig`, `401 unknown-key` (a `kid` the relay
+does not know makes it fetch `keys.json`, at most once a minute), `401 key-not-valid` (a key not allowed to sign it).
+Bodies over 2 MiB (revocations) or 64 KiB (purge) are not read (`413`); 60 requests per minute per client IP, loopback
+excepted.
 
 ## 7. Binary encodings
 - Seal (`application/x-pocket-seal`): `U32BE(len h) || h || U32BE(len c) || c || s` (64 bytes), E2EE §3.5.
@@ -270,7 +291,9 @@ Unfinished reservations expire after 1 hour (their bucket objects are deleted).
   (`addr → acct, dev, kind, lastSeen`), cut-offs, objects (`realm, kind, key, seq, ver, bytes, at, lastRead, rev, path`;
   a deleted object keeps a deletion marker for 30 days — one row per object serves as the change log, so `since` lists
   and subscription replays return each changed object once, at its latest version), queue entries, blobs
-  (`realm, blobId, bytes, store, backend, uploader, createdAt, lastRead`), traffic counters (`acct, day, bytes`).
+  (`realm, blobId, bytes, store, backend, uploader, createdAt, lastRead`), presigned uploads handed out in the last day
+  (`realm, blobId, backend, at`; §9), traffic counters (`acct, period, bytes`: the day, the month and the day's
+  small-file allowance), and per account the `iat` and `quota` of the newest ticket seen (§8.3).
 - Object bodies: files under `dataDir/o/…` written atomically (temp + rename), or rows in the database.
 - Blob bodies: `dataDir/b/<realm>/<blobId>` or the bucket key `<prefix><realm>/<blobId>`; nothing else (no names, no
   account ids in plain, no content types).
@@ -282,17 +305,57 @@ Unfinished reservations expire after 1 hour (their bucket objects are deleted).
 ### 8.2 Retention (defaults; configurable)
 - Objects: deleted when neither written nor read for `objectDays` (30). `sess`, `info` and `usage` objects of a computer
   that is still connected at least weekly are kept.
-- Blobs: deleted `blobDays` (30) after the last download, or after upload if never downloaded (today's policy).
+- Blobs: deleted `blobDays` (30) after the last download, or after upload if never downloaded (today's policy). A
+  download counts when it delivered at least half of the blob to the client (from disk: the response reached its end;
+  from a bucket: every `302`, which is charged the whole size). A few bytes of a range, the last byte included, or a
+  download the client cut off do not renew a blob.
 - Queue: by `ttl`; at most `queueMaxSeconds`.
 - `gone` cut-offs and purge orders delete at once.
 - Deleted data is gone: no trash, no backups of ciphertext beyond what the operator's disk snapshots keep.
 
 ### 8.3 Quotas
-Per account: blob traffic per day and per month (uploads and downloads count, `HEAD` does not), and optionally
-stored bytes. Values come from the config or, when `useTicketQuota` is true, from the ticket's `quota`
-(`dayMB`, `monthMB`, `storeMB`; 0 = unlimited). Day and month follow `timezone`. Over quota:
-`429 {"error":"quota","quota":{"day":{used,cap},"month":{used,cap}},"retryAfter":<s>}` with `Retry-After`.
-Envelope and object traffic is not counted against the blob quota (limits of §10 still apply).
+Per account: blob traffic per day and per month (uploads and downloads count, `HEAD` does not), stored bytes, and a
+**small-file allowance**. Day and month follow `timezone`.
+
+**Stored bytes** (`storeMB`) are what the account keeps on this relay: its live objects (session lists, messages, lite
+messages, info, usage) and its blobs, open reservations included, wherever they are kept (disk or bucket). The
+configuration's default is 5120 MB; a ticket's `storeMB` replaces it (0 = unlimited). An object write is checked against
+the growth it causes (a new version no larger than the one it replaces always passes), a blob reservation against its
+`bytes`: over the cap → `429 quota` with `quota.store` and an hour's `Retry-After`. Deleting objects or blobs, and
+retention, make room at once.
+
+**Where the caps come from.** From the configuration, or, when `useTicketQuota` is true, from the `quota` of the
+**newest ticket the relay has seen for the account** (the largest `iat`, whichever of the account's devices presented
+it, over WebSocket or HTTP): `dayMB`, `monthMB`, `storeMB` (0 = unlimited) and `smallMB` (0 = no allowance); a field
+the ticket leaves out comes from the configuration, and a newest ticket without `quota` means the configuration's caps.
+Every device of the account is held to the same caps, whichever ticket it holds itself: counters are per account, so
+caps per ticket would let two devices with different tickets disagree (one pushes the counters past a cap the other
+still has). The relay keeps the newest ticket's `iat` and `quota` per account (across restarts, until the account is
+purged); an older ticket presented later changes nothing. A quota change therefore takes effect as soon as any device of
+the account renews its ticket, and coordination makes the devices renew within a minute or so of a change (COORD.md §7).
+
+**Small-file allowance.** A blob is small when its stored size is at most that of `smallFileMB` of plaintext
+(default 2 MiB, so `PKB1` size 22 + 2 MiB + 16·32 bytes); smallness goes by the blob's whole size, so a large blob read in
+small ranges is not small. While the day and the month have room, every transfer counts there. Once they do not, a
+small blob still moves (upload or download) and counts on the day's allowance of `smallMB` (default 50 MB) instead of
+the day and month, so thumbnails and voice clips keep working after big files used the quota up. The allowance is
+per day only, starts again every day even when the month is used up, and never counts in the day or the month.
+Stored bytes (`storeMB`) have no allowance.
+
+**Over quota:** `429 {"error":"quota","quota":{"day":{used,cap},"month":{used,cap},"small":{used,cap,file},"store"?:{used,cap}},"retryAfter":<s>}`
+with `Retry-After`: until the next day for a small blob (the allowance comes back, even with the month used up) and for
+a large blob when only the day is used up; until the next month for a large blob when the month is used up; an hour
+for stored bytes. Clients SHOULD stop sending large blobs until then and keep trying small ones.
+Envelope and object traffic is not counted against the blob quota (limits of §10 still apply); objects do count as
+stored bytes.
+
+### 8.4 Free disk space
+`disk.minFreeMB` (default 5120; 0 = no minimum) is the space the relay leaves free on the disk of its data directory,
+since a relay usually shares a disk with the system. When storing something would leave less, the relay stores nothing
+new on that disk — object writes, blob reservations and uploads kept on disk answer `503 {"error":"full",
+"retryAfter":600}` with `Retry-After: 600`, and envelopes for offline devices are not queued (`sent` status `full`).
+Reads, deletes, live delivery, renewals and blobs that go to a bucket carry on. The relay logs `disk-low` and `disk-ok`
+when it crosses the line, and checks the free space at most every 2 seconds. Free space it cannot read never blocks.
 
 ## 9. S3-compatible blob storage
 
@@ -308,13 +371,21 @@ Envelope and object traffic is not counted against the blob quota (limits of §1
 - Backend choice per new blob: the first backend whose `when` matches the **uploading client's IP** (`cn-ip` = inside the
   CIDR list in `cnIpFile`, refreshed weekly by the operator; `default` matches everything). The choice is recorded per
   blob; downloads go to where the blob is.
-- If the bucket is unreachable at reservation time the relay answers `{mode: "direct"}` and stores on disk instead.
+- If the bucket is unreachable at reservation time the relay answers `{mode: "direct"}` and stores on disk instead
+  (subject to §8.4). That is the only way a blob reaches the disk of a relay with a bucket: a direct PUT without such a
+  reservation is refused (§6.4).
+- Presigned PUTs are valid 15 minutes and can be used more than once while valid. The relay remembers each one it hands
+  out for a day: once the URL can no longer start an upload, and then at every sweep (hourly) until the day is over, it
+  HEADs the object, and deletes it unless the blob is committed there or a reservation of it is open. So an upload that
+  lands after its blob is gone — the reservation expired, the blob was deleted, the account purged — does not stay.
 - The relay deletes bucket objects on retention, purge and `gone`.
+- Each relay needs its own bucket or `prefix`.
 
 ## 10. Limits (defaults)
 | What | Default |
 |---|---|
-| WebSocket frame | 2 MiB |
+| WebSocket frame | 2 MiB; 64 KiB before `ready` (`authFrame`) |
+| WebSocket sockets not authenticated yet | 1000 at once, all clients together (`unauthSockets`); 10 s each (`authSeconds`) |
 | Envelope ciphertext / header | 1 MiB / 4 KiB |
 | Frames per connection | burst 50, sustained 20 per second |
 | Sockets per device | 2 |
@@ -323,7 +394,10 @@ Envelope and object traffic is not counted against the blob quota (limits of §1
 | Object writes | 30 per second per owner |
 | Blob size | 100 MiB of plaintext |
 | Concurrent blob uploads per device | 4 |
-| JSON request bodies | 64 KiB, 30 s |
+| Presigned PUT / GET | valid 15 minutes / 2 minutes |
+| Stored bytes per account | 5120 MB (`quota.storeMB`, or the ticket's) |
+| Free space kept on the data directory's disk | 5120 MB (`disk.minFreeMB`) |
+| JSON request bodies | 64 KiB, 30 s (a revocation document: 2 MiB) |
 | Connections per IP | 100 |
 | HTTP challenges | 120 per IP per minute; 200 000 outstanding in total (`limits.nonces`) |
 
@@ -453,7 +527,8 @@ by its configuration refuses `reset-claim`.
 `relayId` = `hk1`, base URL `https://pocket.pocketcli.net/relay` (WebSocket `wss://pocket.pocketcli.net/relay/v1/ws`),
 `account` = `*`, hosted in Hong Kong next to the coordination server. Blob backends: Tencent COS Shanghai for clients in
 mainland China, Tencent COS Hong Kong for everyone else (`cn-ip` rule), quotas from tickets (today 200 MB/day,
-2 GB/month per account). Coordination pushes revocations to it over loopback.
+2 GB/month and 5 GB stored per account, and a 50 MB/day small-file allowance). Coordination pushes revocations to it
+over loopback.
 
 ## 14. Errors
 | HTTP | `error` codes |
@@ -464,14 +539,15 @@ mainland China, Tencent COS Hong Kong for everyone else (`cn-ip` rule), quotas f
 | 404 | `not-found` |
 | 409 | `ver`, `exists`, `size`, `claimed` |
 | 413 | `too-large` |
-| 429 | `rate`, `quota`, `full` |
-| 503 | `storage`, `unclaimed` |
+| 429 | `rate`, `quota` |
+| 503 | `storage`, `unclaimed`, `full` (the relay's disk is nearly full, §8.4) |
 
 Errors of the claim flow (§12.1: `POST /v1/claim`, and `unclaimed` answers) repeat the code as `"code"` next to `"error"`.
 
 ## 15. Conformance tests (the relay's own suite)
 - Ticket and proof verification: every case in `vectors.json` `coord.ticket` and `coord.relayAuth`; challenge reuse;
-  auth timeout; renewal on the same socket; bound-account relay refusing other accounts.
+  auth timeout; renewal on the same socket; bound-account relay refusing other accounts; before `ready` frames over
+  64 KiB close 4413 and sockets beyond `unauthSockets` get 503, and authenticated ones do not count.
 - Revocation: cut-off by document push and by poll; sockets closed on cut-off; `gone` purges data; old tickets rejected,
   new tickets accepted after a suspension is lifted.
 - Envelopes: peers enforcement, `*` fan-out, queue order, TTL expiry and `expired` notice, acks and redelivery,
@@ -480,8 +556,20 @@ Errors of the claim flow (§12.1: `POST /v1/claim`, and `unclaimed` answers) rep
   `prefer=lite`, `skip`, byte caps and `X-Pocket-More`, change notifications and `resync`.
 - Blobs: reservation, direct upload with header check, presigned upload + commit size check (against a fake S3),
   302 downloads without forwarding Authorization, ranges, quotas per day/month with the configured timezone,
-  retention sweeps.
-- Purge orders: wrong label, wrong relay, older than 7 days, replayed.
+  the small-file allowance (small blobs go on after the day and the month, large ones wait, a large blob read in
+  ranges is not small, the allowance is bounded and comes back the next day, none for stored bytes), caps from the
+  account's newest ticket whichever device presents it (older tickets change nothing, kept across a restart,
+  forgotten on purge), retention sweeps.
+- Storage: stored bytes count objects and blobs together (default and ticket cap, a smaller new version passes,
+  deletes and purges make room, accounts apart); the disk minimum (objects, reservations and direct uploads 503,
+  queueing `full`, reads, deletes, live delivery and bucket uploads go on, logged once each way); with a bucket no
+  direct upload without a direct-mode reservation; tiny ranges and cut-off downloads do not renew a blob; a direct
+  upload under way keeps its reservation through a sweep and loses its bytes when the reservation goes; presigned PUTs
+  valid 15 minutes, late uploads after a delete or an expired reservation swept, committed blobs never touched.
+- Purge orders: wrong label, wrong relay, older than 7 days, replayed. Control documents signed by a key not allowed
+  to sign them, under another label (a ticket), or with another document's signature; unknown key ids fetch keys at
+  most once a minute; bodies over the limit are not read.
+- Public endpoints give `version` as major.minor.
 - Logs contain none of: seal bytes, tickets, tokens, nonces, presigned URLs, claim codes.
 - Without a domain (§12.1): the self-signed certificate's fields (also read back by `openssl`), TLS with a correct and
   a wrong pin, files and modes in the data directory, the line in connect.txt and on standard output, only three

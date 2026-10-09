@@ -32,6 +32,10 @@
   "blobs": { "store": "disk" },
 
   "timezone": "Asia/Shanghai",
-  "quota": { "dayMB": null, "monthMB": null, "storeMB": null, "useTicketQuota": true },
+  // Caps per account (null = unlimited). storeMB: sessions and attachments kept here, together. When the day or month
+  // is used up, files up to smallFileMB (thumbnails, voice) still go through, up to smallMB a day (0 = off).
+  "quota": { "dayMB": null, "monthMB": null, "storeMB": 5120, "smallMB": 50, "smallFileMB": 2, "useTicketQuota": true },
+  // Space to leave free on the data directory's disk; below it nothing new is stored there (0 = off).
+  "disk": { "minFreeMB": 5120 },
   "retention": { "objectDays": 30, "blobDays": 30, "queueMaxSeconds": 604800 }
 }
