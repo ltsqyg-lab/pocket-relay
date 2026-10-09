@@ -31,14 +31,21 @@ export const DEFAULT_LIMITS = {
   presenceDebounceMs: 5000,
 }
 
+/** The official coordination public key (also pinned in the App and the desktop agent; not a secret). Newer keys are
+ *  adopted when keys.json is signed by one already trusted (E2EE.md §12.1), so this list only grows with releases. */
+export const OFFICIAL_COORD_KEYS = [
+  { kid: 'c1', pub: 'BLv9ISMLeI3tx3arobNAhCeYOFlF7DWmPGHh5zky1v0V2vLMLdeQIoFnJAmRkj_oU9i6Ml0Qoe2-v-xdEeRhqJ0',
+    use: ['keys', 'ticket', 'netmap', 'revocations', 'purge'], nbf: 1791478203268, exp: 1886086503268 },
+]
+
 export const DEFAULTS = {
-  relayId: null,
+  relayId: null,                        // both null: the relay is claimed from the Pocket App (RELAY.md §12.1)
   account: null,
-  publicUrl: null,
+  publicUrl: null,                      // null: ask coordination for this server's IP and use https://<ip>:<listen.port>
   listen: { host: '0.0.0.0', port: 8443 },
-  tls: null,
+  tls: 'auto',                          // "auto": own self-signed certificate, or plain HTTP when trustProxy is true
   trustProxy: false,
-  coord: { url: 'https://pocket.pocketcli.net', pinnedKeys: [], refreshHours: 6, pollSeconds: 60, idlePollHours: 6 },
+  coord: { url: 'https://pocket.pocketcli.net', pinnedKeys: OFFICIAL_COORD_KEYS, refreshHours: 6, pollSeconds: 60, idlePollHours: 6 },
   dataDir: '/var/lib/pocket-relay',
   blobs: { store: 'disk' },
   timezone: 'Asia/Shanghai',
@@ -142,8 +149,16 @@ export function loadConfig({ file = null, env = process.env } = {}) {
 export function finalize(input) {
   const cfg = merge(structuredClone(DEFAULTS), input)
   const bad = (m) => { throw new ConfigError(m) }
-  if (typeof cfg.relayId !== 'string' || !/^[A-Za-z0-9_:.-]{1,64}$/.test(cfg.relayId)) bad('relayId is required (the id coordination gave this relay, e.g. "hk1" or "r_…")')
-  if (typeof cfg.account !== 'string' || !cfg.account || cfg.account.length > 128) bad('account is required ("*" for any account, otherwise the one account this relay serves)')
+  // relayId and account: both given = bound by this configuration (the official relay, or a relay set up the old way);
+  // both left out = bound later by a claim from the Pocket App (binding.json in the data directory)
+  const given = (v) => v !== null && v !== undefined && v !== ''
+  if (given(cfg.relayId) !== given(cfg.account)) {
+    bad('relayId and account go together: give both, or leave both out to claim the relay from the Pocket App (RELAY.md §12.1)')
+  }
+  if (given(cfg.relayId)) {
+    if (typeof cfg.relayId !== 'string' || !/^[A-Za-z0-9_:.-]{1,64}$/.test(cfg.relayId)) bad('relayId must be the id coordination gave this relay, e.g. "hk1" or "r_…"')
+    if (typeof cfg.account !== 'string' || cfg.account.length > 128) bad('account must be "*" for any account, otherwise the one account this relay serves')
+  } else { cfg.relayId = null; cfg.account = null }
   let pinned = cfg.coord?.pinnedKeys
   if (typeof pinned === 'string') { try { pinned = JSON.parse(pinned) } catch { bad('coord.pinnedKeys must be a JSON array') } }
   if (!Array.isArray(pinned) || !pinned.length) bad('coord.pinnedKeys must list at least one coordination public key')
@@ -157,11 +172,26 @@ export function finalize(input) {
   const port = Number(cfg.listen?.port)
   if (!Number.isInteger(port) || port < 0 || port > 65535) bad('listen.port must be a port number')
   cfg.listen = { host: cfg.listen?.host || '0.0.0.0', port }
-  if (cfg.tls && (typeof cfg.tls !== 'object' || !cfg.tls.cert || !cfg.tls.key)) bad('tls must be null or {"cert": "<file>", "key": "<file>"}')
-  if (!cfg.tls) cfg.tls = null
   cfg.trustProxy = cfg.trustProxy === true || cfg.trustProxy === 'true' || cfg.trustProxy === 1
+  // tls: "auto" (default) = the relay's own self-signed certificate, unless trustProxy says a proxy terminates TLS;
+  // "self" = always the self-signed certificate; null / false / "off" = plain HTTP (TLS at a proxy in front);
+  // {"cert", "key"} = these PEM files
+  const t = cfg.tls
+  if (t === undefined || t === 'auto') cfg.tlsMode = cfg.trustProxy ? 'off' : 'self'
+  else if (t === 'self') cfg.tlsMode = 'self'
+  else if (t === null || t === false || t === 'off') cfg.tlsMode = 'off'
+  else if (isObj(t) && typeof t.cert === 'string' && t.cert && typeof t.key === 'string' && t.key) cfg.tlsMode = 'files'
+  else bad('tls must be "auto", "self", null (plain HTTP behind a TLS proxy) or {"cert": "<file>", "key": "<file>"}')
+  // kept in a form that finalize() reads back the same way (tests and tools may finalize a finalized object again)
+  cfg.tls = cfg.tlsMode === 'files' ? { cert: t.cert, key: t.key } : cfg.tlsMode === 'self' ? 'self' : null
   try { new Intl.DateTimeFormat('en-CA', { timeZone: cfg.timezone }) } catch { bad(`timezone ${JSON.stringify(cfg.timezone)} is not a valid IANA time zone`) }
   if (!cfg.publicUrl) cfg.publicUrl = null
+  else {
+    let u = null
+    try { u = new URL(String(cfg.publicUrl)) } catch { /* reported below */ }
+    if (!u || u.protocol !== 'https:' || u.username || u.password || u.search || u.hash) bad('publicUrl must be the https:// address devices use, e.g. https://203.0.113.7:8443 or https://relay.example.com')
+    cfg.publicUrl = u.href.replace(/\/+$/, '')
+  }
   cfg.limits = merge(structuredClone(DEFAULT_LIMITS), isObj(cfg.limits) ? cfg.limits : {})
   const blobs = isObj(cfg.blobs) ? cfg.blobs : { store: 'disk' }
   if (blobs.store === 's3') {

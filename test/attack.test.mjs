@@ -5,6 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
 import { tfetch, Coord, device, startRelay, wsConnect, connect, httpToken, proof, objectSeal, api, envelope, ref, b64u, sleep } from './helpers.mjs'
@@ -198,7 +199,11 @@ test('§5-13 S3 downloads: a 302 charges the whole object whatever the Range, an
 
 test('§5-13 malformed input: WebSocket frames, HTTP paths and bodies never crash the relay or escape its data directory', async (t) => {
   const coord = new Coord()
-  const r = await startRelay(coord)
+  // the data directory inside a private parent: what appears next to it is the relay's doing, not another test's
+  // (other test suites on the machine create their own temporary directories at the same time)
+  const parentDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pocket-relay-test-'))
+  t.after(() => fs.rmSync(parentDir, { recursive: true, force: true }))
+  const r = await startRelay(coord, {}, { dir: path.join(parentDir, 'data') })
   t.after(() => r.stop())
   const mac = device('computer'), phone = device('phone')
   const Mc = await connect(r, coord, mac, { peers: [phone.addr] })

@@ -1,13 +1,16 @@
 # Pocket relay — protocol and behaviour v1
 
-Status: implementation spec, phase 1 (2026-10-08). License of the relay implementation: **AGPL-3.0**.
+Status: implementation spec, phase 1 (2026-10-08); §12.1 (relays without a domain: self-signed certificate, pin,
+claim) added 2026-10-09. License of the relay implementation: **AGPL-3.0**.
 Crypto, identifiers and verification rules come from [E2EE.md](E2EE.md); this document defines what a relay stores,
 which requests it accepts and how it answers. Paths below are relative to the relay's **base URL**
-(official relay: `https://pocket.pocketcli.net/relay`; a self-hosted relay: whatever URL its owner registered).
+(official relay: `https://pocket.pocketcli.net/relay`; a self-hosted relay: the base URL of its connection line, §12.1).
 
 > **中文摘要**　中继只搬运和暂存密文:实时转发信封、短时排队、保存会话记录的加密对象、保存加密附件(本机磁盘或任意
 > S3 兼容对象存储)。它凭协调服务器签的短期票据放行(离线校验,不需要我们的任何秘密),并要求设备当场用私钥签一次
 > 挑战;只在同一账号、ACL 允许的设备之间转发;自建中继只服务绑定的那个账号。它看得到大小、时间、谁和谁通信,看不到内容。
+> 自建中继不需要域名(§12.1,照 Tailscale DERP 的做法):中继自己生成自签证书、问协调服务器自己的公网 IP,打印一行
+> `pocket-relay://IP:端口?pin=sha256:…&claim=…`;用户贴进 App,协调服务器钉住这个证书指纹调 `POST /v1/claim` 把中继认领到账号下。
 
 ---
 
@@ -32,14 +35,15 @@ environment variable `RELAY_<UPPER_SNAKE>`; secrets SHOULD come from the environ
 
 ```json
 {
-  "relayId": "hk1",                         // must equal the `aud` of tickets; given by coordination at registration
+  "relayId": "hk1",                         // must equal the `aud` of tickets; null (with account) = claimed later, §12.1
   "account": "*",                           // "*" = any account (official); otherwise the one account this relay serves
-  "publicUrl": "https://relay.example.com", // base URL as devices reach it (used in /v1/info and redirects)
+  "publicUrl": "https://relay.example.com", // base URL as devices reach it; null = https://<IP from whoami>:<listen.port>
   "listen": { "host": "0.0.0.0", "port": 8443 },
-  "tls": { "cert": "/etc/relay/fullchain.pem", "key": "/etc/relay/privkey.pem" },   // or null behind a TLS proxy
+  "tls": "auto",                            // "auto" | "self" | null (plain HTTP behind a TLS proxy) | {"cert","key"}
   "trustProxy": false,                      // true only behind a reverse proxy that sets X-Forwarded-For
   "coord": {
-    "url": "https://pocket.pocketcli.net",  // keys: <url>/.well-known/pocket/keys.json; feed: <url>/v2/relay/revocations
+    "url": "https://pocket.pocketcli.net",  // keys: <url>/.well-known/pocket/keys.json; feed: <url>/v2/relay/revocations;
+                                            // public address: <url>/v2/whoami
     "pinnedKeys": [ { "kid": "c1", "pub": "<b64u 65 B>", "use": ["keys","ticket","revocations","purge"], "nbf": 0, "exp": 0 } ]
   },
   "dataDir": "/var/lib/pocket-relay",
@@ -51,9 +55,18 @@ environment variable `RELAY_<UPPER_SNAKE>`; secrets SHOULD come from the environ
 }
 ```
 
-Startup MUST fail if `relayId` or `account` is missing, or if no coordination key is pinned. The pinned keys bootstrap
-trust; the relay then refreshes `keys.json` (every 6 h and when it meets an unknown `kid`) and adopts new keys only
-when signed by a key it already trusts (E2EE §12.1).
+`relayId` and `account` come together: both given = bound by the configuration (the official relay; the old self-hosting
+flow); both absent = bound by a claim (§12.1), kept in `dataDir/binding.json`. Startup MUST fail if only one is given,
+or if no coordination key is pinned. The reference relay pins the official coordination key (`c1`) by default, so a
+configuration may leave `coord` out. The pinned keys bootstrap trust; the relay then refreshes `keys.json` (every 6 h
+and when it meets an unknown `kid`) and adopts new keys only when signed by a key it already trusts (E2EE §12.1).
+
+`tls`: `"auto"` (default) = the relay's own self-signed certificate (§12.1), except with `trustProxy: true`, where it
+serves plain HTTP behind the proxy; `"self"` = always the self-signed certificate; `null` (also `false`, `"off"`) =
+plain HTTP, TLS terminated in front; `{"cert", "key"}` = PEM files, reloaded when they change. `publicUrl`, when given,
+MUST be an `https://` URL without query or fragment; a base path is allowed (the official relay has one), but a relay
+added from the App is reached at the root of its host and port (§12.1). Without it a relay that terminates TLS itself
+learns its address from coordination (§12.1).
 
 ## 3. Authentication
 
@@ -184,8 +197,8 @@ counter (§6.3). With `sub.since` the relay first replays changes after that `re
 
 ### 5.5 Keep-alive and close codes
 The relay pings every 30 s and closes connections silent for 90 s. Close codes: 4400 malformed, 4401 auth failed or
-expired, 4403 revoked or not allowed, 4408 no `auth` within 10 s, 4409 replaced by a newer socket, 4413 frame too
-large, 4429 rate limited. Other errors on a live socket are frames: `{"t":"error","code":…,"id"?:…}`. Frames the relay
+expired, 4403 revoked or not allowed (reason `unclaimed`: the relay was unbound, §12.1), 4408 no `auth` within 10 s,
+4409 replaced by a newer socket, 4413 frame too large, 4429 rate limited. Other errors on a live socket are frames: `{"t":"error","code":…,"id"?:…}`. Frames the relay
 sends before closing: `replaced` (4409), `expired` (4401), `revoked` (4403). A `sub` naming realms the ticket cannot
 read is answered `{"t":"error","code":"denied","realms":[…]}` and the readable rest is subscribed.
 
@@ -195,8 +208,15 @@ JSON responses use `application/json`; errors are `{"error": "<code>", "message"
 HTTP status of §14. Clients translate codes into their own sentences.
 
 ### 6.1 Public
-- `GET /v1/info` → `{ "service": "pocket-relay", "version", "relayId", "account", "time", "features": ["ws","objects","blobs","presign"], "limits": {"envelope": 1048576, "object": {…}, "blob": 104857600} }`
-- `GET /.well-known/pocket-relay` → `{ "relayId", "account", "version" }` (coordination checks a self-hosted relay with it).
+- `GET /v1/info` → `{ "service": "pocket-relay", "version", "state": "claimed" | "unclaimed", "relayId", "account", "time", "features": ["ws","objects","blobs","presign"], "limits": {"envelope": 1048576, "object": {…}, "blob": 104857600} }`
+  (`relayId` and `account` are null while unclaimed).
+- `GET /.well-known/pocket-relay` → `{ "v": 1, "state": "claimed", "relayId", "account", "version" }`, or `{ "v": 1, "state": "unclaimed" }`
+  before a claim (coordination checks a self-hosted relay with it).
+- `POST /v1/claim` — §12.1.
+- `GET /v1/health` → `{ "ok": true, "version" }`; 503 `unclaimed` before a claim.
+
+While a relay is unclaimed (§12.1) it answers only `GET /v1/info`, `GET /.well-known/pocket-relay` and `POST /v1/claim`:
+every other request (`/v1/health` included) and the WebSocket upgrade get `503 {"error":"unclaimed","code":"unclaimed"}`.
 
 ### 6.2 Auth
 §3.2.
@@ -254,6 +274,10 @@ Unfinished reservations expire after 1 hour (their bucket objects are deleted).
 - Object bodies: files under `dataDir/o/…` written atomically (temp + rename), or rows in the database.
 - Blob bodies: `dataDir/b/<realm>/<blobId>` or the bucket key `<prefix><realm>/<blobId>`; nothing else (no names, no
   account ids in plain, no content types).
+- The relay's own state (§12.1), all 0600: `dataDir/tls/self-key.pem` + `self-cert.pem` (self-signed certificate),
+  `claim.json` (claim code, while unclaimed), `binding.json` (relay id and account, once claimed), `public.json` (the
+  address coordination reported), `connect.txt` (the connection line). Unlike the ciphertext cache, losing the
+  certificate or the binding means adding the relay again.
 
 ### 8.2 Retention (defaults; configurable)
 - Objects: deleted when neither written nor read for `objectDays` (30). `sess`, `info` and `usage` objects of a computer
@@ -314,15 +338,116 @@ Expose counts and sizes only in metrics. The official relay keeps logs 7 months 
 self-hosters decide for themselves.
 
 ## 12. Self-hosting
-1. A server with a public IP and a domain; 1 vCPU / 1 GB RAM is enough for one person. HTTPS certificate from any CA
-   (ACME through a reverse proxy, or `tls.cert`/`tls.key`).
-2. In the Pocket App: Settings → Relay → Add your own relay → enter the URL. Coordination answers with a `relayId` and
-   your account id; put both into the config. (Nothing secret is exchanged: the relay only learns public values.)
-3. Start the container (`docker run … -v /srv/pocket-relay:/var/lib/pocket-relay -e RELAY_RELAY_ID=… -e RELAY_ACCOUNT=…`),
-   then tap "Verify" in the App (coordination fetches `/.well-known/pocket-relay`), then "Use this relay".
+A server with a public IP address; 1 vCPU / 1 GB RAM is enough for one person. No domain is needed.
+
+1. Start the relay without `relayId`/`account` (the reference relay's Docker image needs no configuration at all:
+   `docker run -d --name pocket-relay --restart unless-stopped -p 8443:8443 -v pocket-relay:/var/lib/pocket-relay pocket-relay`).
+   It makes a self-signed certificate for its public address and prints one line (also in `dataDir/connect.txt`):
+   `pocket-relay://203.0.113.7:8443?pin=sha256:<hex>&claim=<code>` — §12.1.
+2. Open that TCP port in the firewall / security group.
+3. In the Pocket App: Devices → Relay → Add your own relay → paste the line. Coordination registers the relay for the
+   account (a new relay id `r_…`), connects to it with TLS pinned to `pin`, and claims it (`POST /v1/claim`). The relay
+   then serves that account only.
 4. Switching relays: computers re-upload their sessions to the new relay automatically; phones re-download. The old
    relay's data can be deleted by its owner.
 5. If your relay is unreachable, the App offers to switch back to the official relay.
+
+**With a domain** the same flow works (`publicUrl` = `https://relay.example.com:8443`, self-signed certificate for that
+name, pinned). Besides:
+- `publicUrl` = `https://relay.example.com` behind a reverse proxy that terminates TLS with a certificate from a public
+  CA (`tls: null` or `trustProxy: true`): the line carries no `pin`, devices verify the proxy like any website.
+- `tls: {cert, key}` with a certificate from a public CA for the domain name in `publicUrl`: no `pin` either (a pin
+  would break at the next renewal); any other certificate given in files is pinned like the self-signed one.
+- **Bound by configuration** (the flow before 2026-10-09, still accepted): register the URL in the App
+  (`POST /v2/relays`, COORD.md §10), put the `relayId` and `account` it shows into the configuration, start the relay,
+  then verify (coordination fetches `/.well-known/pocket-relay`). Such a relay never answers a claim (409 `claimed`).
+
+### 12.1 Without a domain: pinned self-signed certificate and claim
+The way Tailscale's DERP servers run on a bare IP address: the relay makes its own certificate; coordination
+distributes its fingerprint; devices accept exactly that certificate.
+
+**Certificate.** ECDSA P-256 key; X.509 v3, self-signed (issuer = subject), CN = the host, subjectAltName = the IP
+address (or the DNS name when `publicUrl` names one), basicConstraints CA:FALSE (critical), keyUsage digitalSignature
+(critical), extKeyUsage serverAuth, a random positive 16-byte serial, ecdsa-with-SHA256, valid from one day before
+creation for 10 years. Kept as `dataDir/tls/self-key.pem` and `self-cert.pem` (0600) and reused across restarts; a new
+one is made only when the files are missing or broken, the certificate expires within 30 days, or the public host
+changes. A relay that does not know its address yet serves a certificate without subjectAltName (CN
+`pocket-self-signed`) and replaces it once it does; it prints no line meanwhile.
+
+**Pin** = `"sha256:"` + the lower-case hex SHA-256 of the leaf certificate's DER (64 digits).
+
+**Public address.** `publicUrl` when configured. Otherwise, when the relay terminates TLS itself, it asks
+`GET <coord.url>/v2/whoami` → `{ "ip": "<the address the request came from>" }` at every start (before making a
+certificate) and assumes devices reach it at `https://<ip>:<listen.port>`; the answer is kept in `dataDir/public.json`
+and used when a later lookup fails; while it has none, it retries every minute (doubling up to 15 minutes) and prints
+how to set `publicUrl` (`RELAY_PUBLIC_URL`). Behind a proxy (`tls` off) `publicUrl` is required for a line.
+
+**Connection line.**
+```
+pocket-relay://<host>:<port>[?pin=sha256:<hex>][&claim=<code>]
+```
+- `host`: an IPv4 address, an IPv6 address in brackets, or a DNS name (lower case, IDN in punycode; not a name a
+  resolver would read as an IPv4 address, such as `127.1`); `port` always present. The relay's base URL is
+  `https://<host>:<port>`: no path (a client tolerates one trailing `/`). A relay whose `publicUrl` has a path prints
+  no line and says why.
+- `pin`: always present for an IP address. For a DNS name it is left out only when TLS is terminated by a proxy, or
+  the configured certificate chains to a public CA and covers the name. A line for an IP address without a pin is
+  invalid (a relay behind a proxy at an IP address prints no line). Clients MUST refuse a pin of another form.
+- `claim`: 32 random bytes, base64url without padding (43 characters); present only while the relay is unclaimed.
+- `pin` and `claim` appear at most once; clients ignore parameters they do not know (later additions). No user name,
+  no fragment.
+- The relay prints the line on standard output with "In the Pocket App: Devices → Relay → Add your own relay, paste this
+  line" in English and Chinese and a reminder to open the TCP port, and writes it to `dataDir/connect.txt` (0600).
+
+**Unclaimed state.** No `relayId`/`account` in the configuration and no `dataDir/binding.json`: the relay keeps a claim
+code in `dataDir/claim.json` (0600; reused across restarts until claimed) and answers only `GET /.well-known/pocket-relay`
+(`{"v":1,"state":"unclaimed"}`), `GET /v1/info` and `POST /v1/claim` (§6.1); everything else is 503 `unclaimed`.
+
+**Claim.**
+```
+POST /v1/claim  { "claim": "<code>", "relayId": "r_…", "account": "<account id>" }
+→ 200 { "ok": true, "relayId", "account" }
+```
+- `relayId` matches `^[A-Za-z0-9_:.-]{1,64}$`; `account` is one account id (non-empty, ≤ 128 characters, not `"*"`).
+- The code is compared in constant time with the stored one. On success the relay writes `dataDir/binding.json`
+  `{relayId, account, at}` (0600), deletes `claim.json`, and serves at once without a restart: tickets must have
+  `aud = relayId` and `acct = account` (§3), as on any bound relay. Data that other accounts left in the data directory
+  (from before a `reset-claim`) is deleted.
+- Errors (the code also repeated as `code`): 400 `bad-request` (malformed body, `relayId` or `account`; the claim code
+  stays valid), 403 `bad-claim`, 409 `claimed` (already claimed, or bound by its configuration), 413 `too-large`
+  (body > 4 KiB), 429 `rate` with `Retry-After` and `retryAfter` (more than 5 attempts per client IP per minute,
+  whatever their outcome).
+- A caller whose answer got lost and who then gets 409 checks `/.well-known/pocket-relay`: `relayId` and `account` equal
+  to what it sent mean its claim went through.
+
+**Who calls it.** The App hands the pasted line to coordination; coordination parses it, applies its SSRF rules
+(COORD.md §10), assigns the relay id, connects over TLS **pinned** to `pin` and sends the claim. Devices then reach the
+relay at the line's base URL with the same pin (it travels with the relay's registration).
+
+**Clients and the pin (normative).** With a `pin`, a client — device or coordination — opens TLS without CA
+verification and without host name checks, computes the SHA-256 of the DER of the certificate the server presented
+and compares it with the pin **before sending anything** (no request line, no headers, no ticket); a mismatch closes
+the connection. SNI is sent only for DNS names. Without a `pin`, normal CA and host name verification applies.
+
+**Operator commands.** `node src/main.mjs connect-string` prints the line again (without a claim code once claimed).
+`node src/main.mjs reset-claim` writes a new claim code, then removes `binding.json`; a running relay re-reads both
+every few seconds, closes every socket (4403 `unclaimed`), forgets its tokens and waits for a claim again. A relay bound
+by its configuration refuses `reset-claim`.
+
+**Security considerations.**
+- The claim code appears only in the relay's standard output and in its data directory (0600): whoever can read those
+  controls the server anyway. It is single use, 256 random bits, compared in constant time, and the per-IP limit keeps
+  even guessing noise small. A code that leaked before use is replaced with `reset-claim`.
+- Pinning makes the claim and all later traffic safe from interception without any certificate authority: an attacker
+  between coordination (or a device) and the relay cannot present the pinned certificate. Clients do not consult
+  system root certificates for pinned relays, so a mis-issued CA certificate does not help either.
+- The pin and the relay's address are not secret; the account id is visible on `/.well-known/pocket-relay`, as for any
+  bound relay. The relay never learns more than §11 lists: the claim gives it a relay id and an account id, not a key.
+- Whoever holds the certificate's private key can impersonate the relay — which is the relay, and only ever sees
+  ciphertext (E2EE §2). To replace the key: delete `dataDir/tls/`, restart, `reset-claim`, add the relay again.
+- A changed public address means a new certificate and pin: devices keep the old ones and cannot connect until the
+  relay is added again. Operators who expect changes use a static address or a domain in `publicUrl`.
+- The whoami lookup trusts coordination for the address only; a wrong answer makes an unusable line, nothing worse.
 
 ## 13. Official relay
 `relayId` = `hk1`, base URL `https://pocket.pocketcli.net/relay` (WebSocket `wss://pocket.pocketcli.net/relay/v1/ws`),
@@ -335,12 +460,14 @@ mainland China, Tencent COS Hong Kong for everyone else (`cn-ip` rule), quotas f
 |---|---|
 | 400 | `bad-request`, `mismatch`, `bad-blob` |
 | 401 | `token`, `bad-ticket`, `expired`, `bad-proof`, `bad-nonce`, `bad-sig`, `stale`, `unknown-key`, `key-not-valid`, `wrong-aud` |
-| 403 | `denied`, `revoked`, `wrong-account` |
+| 403 | `denied`, `revoked`, `wrong-account`, `bad-claim` |
 | 404 | `not-found` |
-| 409 | `ver`, `exists`, `size` |
+| 409 | `ver`, `exists`, `size`, `claimed` |
 | 413 | `too-large` |
 | 429 | `rate`, `quota`, `full` |
-| 503 | `storage` |
+| 503 | `storage`, `unclaimed` |
+
+Errors of the claim flow (§12.1: `POST /v1/claim`, and `unclaimed` answers) repeat the code as `"code"` next to `"error"`.
 
 ## 15. Conformance tests (the relay's own suite)
 - Ticket and proof verification: every case in `vectors.json` `coord.ticket` and `coord.relayAuth`; challenge reuse;
@@ -355,4 +482,12 @@ mainland China, Tencent COS Hong Kong for everyone else (`cn-ip` rule), quotas f
   302 downloads without forwarding Authorization, ranges, quotas per day/month with the configured timezone,
   retention sweeps.
 - Purge orders: wrong label, wrong relay, older than 7 days, replayed.
-- Logs contain none of: seal bytes, tickets, tokens, nonces, presigned URLs.
+- Logs contain none of: seal bytes, tickets, tokens, nonces, presigned URLs, claim codes.
+- Without a domain (§12.1): the self-signed certificate's fields (also read back by `openssl`), TLS with a correct and
+  a wrong pin, files and modes in the data directory, the line in connect.txt and on standard output, only three
+  endpoints while unclaimed (WebSocket too), claim tries per IP, malformed claims leave the code valid, the binding
+  survives a restart with the same certificate, `reset-claim` from another process unbinds the running relay and a new
+  owner does not see the previous account's data, whoami failing then answering, `publicUrl` with a DNS name and a base
+  path, certificate files (pinned unless from a public CA), the official configuration unchanged (no lookup, no files,
+  plain HTTP, every account), the relay as a process with an environment-only configuration (`--health`,
+  `connect-string`, claim, `reset-claim`, SIGTERM).

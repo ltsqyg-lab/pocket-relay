@@ -4,10 +4,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-const FORBIDDEN = /^(ticket|token|nonce|url|auth|authorization|env|seal|h|c|s|a|sig|body|key|secret|presigned)$/i
+const FORBIDDEN = /^(ticket|token|nonce|url|auth|authorization|env|seal|h|c|s|a|sig|body|key|secret|presigned|claim)$/i
 const SAFE_VALUE = /^[\w .:@*/+,=()\-[\]'"]{0,200}$/u
 
+/** relayId: a string, or a function (a relay that is claimed while running changes its id). */
 export function createLogger({ relayId, format = 'text', sink = (line) => process.stdout.write(line + '\n'), now = Date.now } = {}) {
+  const rid = () => (typeof relayId === 'function' ? relayId() : relayId)
   function clean(fields) {
     const out = {}
     for (const [k, v] of Object.entries(fields || {})) {
@@ -23,8 +25,8 @@ export function createLogger({ relayId, format = 'text', sink = (line) => proces
   function write(level, op, fields) {
     const f = clean(fields)
     const t = new Date(now()).toISOString()
-    if (format === 'json') sink(JSON.stringify({ t, level, relay: relayId, op, ...f }))
-    else sink(`${t} ${level} ${relayId} ${op}${Object.entries(f).map(([k, v]) => ` ${k}=${typeof v === 'string' && /\s/.test(v) ? JSON.stringify(v) : v}`).join('')}`)
+    if (format === 'json') sink(JSON.stringify({ t, level, relay: rid(), op, ...f }))
+    else sink(`${t} ${level} ${rid()} ${op}${Object.entries(f).map(([k, v]) => ` ${k}=${typeof v === 'string' && /\s/.test(v) ? JSON.stringify(v) : v}`).join('')}`)
   }
   return {
     info: (op, fields) => write('info', op, fields),

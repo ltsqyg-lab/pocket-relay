@@ -339,6 +339,10 @@ export class Hub {
   kick(pred, code = 4403, reason = 'revoked') {
     for (const c of [...this.conns]) if (c.ident && pred(c.ident)) { this.error(c, reason); c.ws.close(code, reason) }
   }
+  /** Close every socket, authenticated or not (the relay was unbound: RELAY.md §12.1 reset-claim). */
+  closeAll(code = 4403, reason = 'unclaimed') {
+    for (const c of [...this.conns]) { try { this.error(c, reason); c.ws.close(code, reason) } catch { /* already gone */ } }
+  }
 
   liveAccounts() { return [...this.byAcct.keys()] }
 

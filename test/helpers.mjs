@@ -4,10 +4,13 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
+import net from 'node:net'
+import tls from 'node:tls'
 import crypto from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { finalize } from '../src/config.mjs'
 import { createRelay } from '../src/relay.mjs'
+import { pinOf } from '../src/selfcert.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /** Protocol documents: POCKET_PROTOCOL_DIR, else the monorepo layout (../docs/protocol), else ./protocol in a split repo. */
@@ -77,35 +80,80 @@ export function proof(dev, ticket, nonce, { relay = 'hk1', ts = Date.now() } = {
   return ref.makeProof('relay-auth', dev.sigPriv, { relay, nonce, th: b64u(ref.sha256(Buffer.from(ticket, 'utf8'))), ts })
 }
 
-/** Start a relay on 127.0.0.1:0 with a temp data dir. Returns {relay, url, ws, http, logs, dir, stop}. */
-export async function startRelay(coord, overIn = {}, { fetchImpl, env } = {}) {
+/**
+ * Start a relay on 127.0.0.1:0 with a temp data dir (or `dir`). Plain HTTP unless `tls` is given (the default
+ * configuration would make a self-signed certificate). Returns {relay, base, pin, logs, printed, dir, cfg, stop}; with
+ * TLS, `base` is https:// and requests must go through pinnedRequest / wsConnect with `pin`.
+ */
+export async function startRelay(coord, overIn = {}, { fetchImpl, env, dir: dirIn, keep = false, bindingPollMs, whoamiRetryMs } = {}) {
   const { now: nowFn, ...over } = overIn
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pocket-relay-test-'))
-  const logs = []
+  const dir = dirIn ?? fs.mkdtempSync(path.join(os.tmpdir(), 'pocket-relay-test-'))
+  const logs = [], printed = []
   const cfg = finalize({
     relayId: 'hk1', account: '*', dataDir: dir, listen: { host: '127.0.0.1', port: 0 },
     coord: { url: null, pinnedKeys: coord.pinned },
+    tls: null,
     ...over,
     limits: { presenceDebounceMs: 150, ...(over.limits ?? {}) },
   })
   const log = { info: (op, f) => logs.push(JSON.stringify({ op, ...f })), warn: (op, f) => logs.push(JSON.stringify({ op, ...f })), error: (op, f) => logs.push(JSON.stringify({ op, ...f })) }
-  const relay = await createRelay(cfg, { log, fetchImpl, env, now: nowFn })
+  const relay = await createRelay(cfg, { log, fetchImpl, env, now: nowFn, print: (text) => printed.push(text), bindingPollMs, whoamiRetryMs })
   const a = await relay.listen(0, '127.0.0.1')
-  const base = `http://127.0.0.1:${a.port}`
+  const base = `${cfg.tlsMode === 'off' ? 'http' : 'https'}://127.0.0.1:${a.port}`
   return {
-    relay, base, logs, dir, cfg, now: nowFn ?? Date.now,
-    async stop() { await relay.close(); fs.rmSync(dir, { recursive: true, force: true }) },
+    relay, base, port: a.port, logs, printed, dir, cfg, now: nowFn ?? Date.now,
+    get pin() { return relay.state.pin },
+    async stop() { await relay.close(); if (!keep) fs.rmSync(dir, { recursive: true, force: true }) },
   }
 }
 
+/**
+ * A TLS socket to `url` that is used only after the server's certificate matched `pin` (SHA-256 of its DER): no CA,
+ * no host name check — how devices and coordination talk to a relay with a self-signed certificate (RELAY.md §12.1).
+ */
+export function pinnedSocket(url, pin) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url)
+    const host = u.hostname.replace(/^\[|\]$/g, '')
+    const sock = tls.connect({ host, port: Number(u.port || 443), servername: net.isIP(host) ? undefined : host, rejectUnauthorized: false })
+    sock.once('error', reject)
+    sock.once('secureConnect', () => {
+      const got = pinOf(sock.getPeerCertificate().raw)
+      if (got !== pin) { sock.destroy(); return reject(Object.assign(new Error('certificate does not match the pin'), { code: 'PIN_MISMATCH', got })) }
+      sock.off('error', reject)
+      resolve(sock)
+    })
+  })
+}
+
+/** One HTTPS request over a pinned socket: {status, headers, text, json()}. */
+export async function pinnedRequest(url, { pin, method = 'GET', headers = {}, body = null, timeout = 20_000 } = {}) {
+  const sock = await pinnedSocket(url, pin)
+  const u = new URL(url)
+  return new Promise((resolve, reject) => {
+    const req = http.request({ createConnection: () => sock, method, path: u.pathname + u.search, timeout,
+      headers: { host: u.host, connection: 'close', ...(body !== null ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) } : {}), ...headers } }, (res) => {
+      const chunks = []
+      res.on('data', (c) => chunks.push(c))
+      res.on('end', () => { sock.destroy(); const text = Buffer.concat(chunks).toString('utf8'); resolve({ status: res.statusCode, headers: res.headers, text, json: () => JSON.parse(text) }) })
+      res.on('error', reject)
+    })
+    req.on('timeout', () => req.destroy(new Error('timeout')))
+    req.on('error', reject)
+    req.end(body ?? undefined)
+  })
+}
+
 // ---- minimal WebSocket client ---------------------------------------------------------------------------------------
-export function wsConnect(base, pathname = '/v1/ws') {
+export async function wsConnect(base, pathname = '/v1/ws', { pin = null } = {}) {
+  const u = new URL(base)
+  const sock = u.protocol === 'https:' ? await pinnedSocket(base, pin) : null
   return new Promise((resolve, reject) => {
     const key = crypto.randomBytes(16).toString('base64')
-    const u = new URL(base)
-    const req = http.request({ host: u.hostname, port: u.port, path: pathname, headers: { Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Key': key, 'Sec-WebSocket-Version': '13' } })
+    const headers = { Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Key': key, 'Sec-WebSocket-Version': '13' }
+    const req = http.request(sock ? { createConnection: () => sock, path: pathname, headers: { host: u.host, ...headers } } : { host: u.hostname, port: u.port, path: pathname, headers })
     req.on('upgrade', (res, socket, head) => resolve(new WsClient(socket, head)))
-    req.on('response', (res) => reject(new Error(`HTTP ${res.statusCode}`)))
+    req.on('response', (res) => { const e = new Error(`HTTP ${res.statusCode}`); e.status = res.statusCode; reject(e) })
     req.on('error', reject)
     req.end()
   })
@@ -176,7 +224,7 @@ export class WsClient {
 
 /** Connect and authenticate a device; returns {ws, ready, token}. */
 export async function connect(t, coord, dev, ticketOpts = {}, proofOpts = {}) {
-  const ws = await wsConnect(t.base)
+  const ws = await wsConnect(t.base, '/v1/ws', { pin: t.pin })
   const ch = await ws.next('challenge')
   const ticket = coord.ticket(dev, { aud: t.cfg.relayId, ...ticketOpts })
   ws.send({ t: 'auth', ticket, ...proof(dev, ticket, ch.nonce, { relay: t.cfg.relayId, ts: t.now(), ...proofOpts }) })

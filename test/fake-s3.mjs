@@ -74,7 +74,8 @@ export function startFakeS3({ port = 0, host = '127.0.0.1', keys = {}, log = () 
   }))
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// not when `node --test` (no arguments) picks this file up as a test file
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href && !process.env.NODE_TEST_CONTEXT) {
   const arg = (n, d) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : d }
   const keys = arg('--keys-file') ? JSON.parse(fs.readFileSync(arg('--keys-file'), 'utf8')) : {}
   const s = await startFakeS3({ port: Number(arg('--port', '18650')), host: arg('--host', '127.0.0.1'), keys, log: (l) => console.log(new Date().toISOString(), l) })

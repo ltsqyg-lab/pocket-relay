@@ -23,12 +23,12 @@ export const STATUS = {
   'bad-seal': 400, 'bad-utf8': 400,
   token: 401, 'bad-ticket': 401, expired: 401, 'bad-proof': 401, 'bad-nonce': 401, 'bad-sig': 401, stale: 401,
   'unknown-key': 401, 'key-not-valid': 401, 'wrong-aud': 401, 'bad-key': 401,
-  denied: 403, revoked: 403, 'wrong-account': 403,
+  denied: 403, revoked: 403, 'wrong-account': 403, 'bad-claim': 403,
   'not-found': 404,
-  ver: 409, exists: 409, size: 409,
+  ver: 409, exists: 409, size: 409, claimed: 409,
   'too-large': 413,
   rate: 429, quota: 429, full: 429,
-  storage: 503,
+  storage: 503, unclaimed: 503,
 }
 export const statusOf = (code) => STATUS[code] ?? 400
 

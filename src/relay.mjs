@@ -1,5 +1,6 @@
 // Pocket relay: HTTP + WebSocket server tying together authentication, envelopes, objects, blobs, revocations,
-// purge orders, quotas and retention (RELAY.md).
+// purge orders, quotas and retention (RELAY.md); its own TLS certificate and the claim that binds a relay started
+// without relayId/account to one account (RELAY.md §12.1, claim.mjs).
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import http from 'node:http'
@@ -15,9 +16,14 @@ import { CnIp } from './cnip.mjs'
 import { Objects, OBJ_KINDS } from './objects.mjs'
 import { Blobs } from './blobs.mjs'
 import { Hub } from './hub.mjs'
+import { ensureSelfSigned, pinOf } from './selfcert.mjs'
+import {
+  claimFiles, readBinding, writeBinding, readClaim, ensureClaim, removeClaim, claimMatches, CLAIM_RE, RELAY_ID_RE, validAccount,
+  configuredAddress, readPublic, writePublic, whoami, nonPublicIp, connectInfo, connectBlock, noLineText, writeFileAtomic, publiclyTrusted,
+} from './claim.mjs'
 import { RelayError, fail, statusOf, verifyRelayAuth, verifyCoordDoc, b64u, sha256hex, isInt, checkAddr, SKEW_MS, unb64u, blobSizeFor } from './proto.mjs'
 
-export const VERSION = '0.1.0'
+export const VERSION = '0.2.0'
 const DAY = 86_400_000
 const NONCE_TTL = 60_000
 // An address whose device stayed silent this long may go to a new device even when this relay never saw the `gone`
@@ -25,9 +31,24 @@ const NONCE_TTL = 60_000
 // (COORD.md §13), so a live device is never this silent and still holding its address. Kept equal to that hold.
 const REASSIGN_SILENCE = 180 * DAY
 
-export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl = globalThis.fetch, env = process.env } = {}) {
-  const logger = log ?? createLogger({ relayId: cfg.relayId, format: cfg.log?.format })
+/**
+ * createRelay(cfg, opts): cfg from loadConfig/finalize. opts: now, log, fetchImpl, env, print (where the connection line
+ * goes; default standard output), bindingPollMs (how often a claimable relay re-reads binding.json and claim.json, so
+ * `reset-claim` from another process takes effect), whoamiRetryMs (first retry when the public address is unknown).
+ */
+export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl = globalThis.fetch, env = process.env,
+  print = (text) => process.stdout.write(text), bindingPollMs = 3000, whoamiRetryMs = 60_000 } = {}) {
   const store = new Store(cfg.dataDir)
+  // ---- binding (RELAY.md §12.1): from the configuration, from a claim (binding.json), or none yet ----------------------
+  // Without one only /.well-known/pocket-relay, /v1/info and /v1/claim answer; everything else is 503 `unclaimed`.
+  const F = claimFiles(cfg.dataDir)
+  let bindSource = cfg.relayId ? 'config' : null
+  if (!bindSource) {
+    const b = readBinding(cfg.dataDir)
+    if (b) { cfg.relayId = b.relayId; cfg.account = b.account; bindSource = 'claim' } else ensureClaim(cfg.dataDir, now())
+  }
+  const bound = () => bindSource !== null
+  const logger = log ?? createLogger({ relayId: () => cfg.relayId ?? 'unclaimed', format: cfg.log?.format })
   const keys = new CoordKeys({ pinned: cfg.coord.pinnedKeys, url: cfg.coord.url, store, now, log: logger, fetchImpl, refreshHours: cfg.coord.refreshHours })
   const cutoffs = new Cutoffs({ store, now })
   const quota = new Quota({ store, timezone: cfg.timezone, quota: cfg.quota, now })
@@ -104,6 +125,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
   // ---- authentication shared by WS and HTTP -------------------------------------------------------------------------
   const auth = {
     async verify(msg, nonce) {
+      if (!bound()) fail('unclaimed')
       if (!msg || typeof msg.ticket !== 'string' || typeof msg.a !== 'string' || typeof msg.s !== 'string') fail('bad-proof')
       const attempt = () => verifyRelayAuth(msg, { keys: keys.list, relayId: cfg.relayId, acct: cfg.account, nonce, now: now() })
       let T
@@ -162,6 +184,21 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     return r
   }
 
+  /** Everything stored for an account. `forget`: also the addresses it was seen at (the relay now serves another account). */
+  async function purgeAccount(acct, { forget = false } = {}) {
+    const deleted = { objects: 0, blobs: 0, queued: 0 }
+    const add = (d) => { deleted.objects += d.objects; deleted.blobs += d.blobs; deleted.queued += d.queued }
+    const idents = store.all('identsOfAcct', acct).map((r) => r.addr)
+    const realms = new Set([...store.all('realmsOfAcct', acct).map((r) => r.realm), ...idents])
+    for (const a of realms) add(await purgeAddr(a))
+    deleted.blobs += await blobs.purgeAcct(acct)
+    deleted.queued += store.run('qDelAcct', acct).changes
+    store.run('trafDelAcct', acct)
+    for (const a of realms) store.run('realmDel', a)
+    if (forget) for (const a of idents) store.run('identDel', a)
+    return deleted
+  }
+
   /** Purge order (RELAY.md §6.5, E2EE.md §12.5). */
   async function applyPurge(doc) {
     let D
@@ -183,14 +220,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     const add = (d) => { deleted.objects += d.objects; deleted.blobs += d.blobs; deleted.queued += d.queued }
     if (D.addrs) {
       for (const a of D.addrs) { const owner = acctOfAddr(a); if (!owner || owner === D.acct) add(await purgeAddr(a)) }
-    } else {
-      const realms = new Set([...store.all('realmsOfAcct', D.acct).map((r) => r.realm), ...store.all('identsOfAcct', D.acct).map((r) => r.addr)])
-      for (const a of realms) add(await purgeAddr(a))
-      deleted.blobs += await blobs.purgeAcct(D.acct)
-      deleted.queued += store.run('qDelAcct', D.acct).changes
-      store.run('trafDelAcct', D.acct)
-      for (const a of realms) { store.run('realmDel', a) }
-    }
+    } else add(await purgeAccount(D.acct))
     store.run('purgeAdd', id, t)
     logger.info('purge', { acct: D.acct, relayTarget: D.relay, objects: deleted.objects, blobs: deleted.blobs, queued: deleted.queued })
     return { deleted }
@@ -221,7 +251,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
       try {
         const t = now()
         const idleGap = Math.max(1, Number(cfg.coord.idlePollHours) || 6) * 3_600_000
-        const live = new Set(cfg.account === '*' ? hub.liveAccounts() : [cfg.account])
+        const live = new Set(cfg.account === '*' ? hub.liveAccounts() : cfg.account ? [cfg.account] : [])
         const idle = cfg.account === '*' ? store.all('acctsWithData').map((r) => r.acct).filter((a) => !live.has(a) && t - (lastPoll.get(a) ?? 0) > idleGap) : []
         for (const a of [...live, ...idle.slice(0, 50)]) await pollAccount(a)
       } finally { schedulePoll() }
@@ -230,7 +260,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
   }
 
   // ---- housekeeping ------------------------------------------------------------------------------------------------
-  let sweepTimer = null, tokenTimer = null, probeTimer = null, certTimer = null
+  let sweepTimer = null, tokenTimer = null, probeTimer = null, certTimer = null, bindingTimer = null, whoamiTimer = null
   async function sweep() {
     try {
       const o = objects.sweep()
@@ -262,7 +292,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     const status = statusOf(code)
     const body = { error: code, ...(e?.extra ?? {}) }
     const headers = {}
-    if (code === 'quota' && e.extra?.retryAfter) headers['Retry-After'] = String(e.extra.retryAfter)
+    if ((code === 'quota' || code === 'rate') && e.extra?.retryAfter) headers['Retry-After'] = String(e.extra.retryAfter)
     if (status === 401 && code === 'token') headers['WWW-Authenticate'] = 'Bearer'
     if (!res.headersSent) sendJson(res, status, body, headers)
     else res.destroy()
@@ -285,7 +315,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     try { const j = JSON.parse(b.toString('utf8')); if (!j || typeof j !== 'object' || Array.isArray(j)) throw 0; return j } catch { fail('bad-request', 'JSON body') }
   }
   const info = () => ({
-    service: 'pocket-relay', version: VERSION, relayId: cfg.relayId, account: cfg.account, time: now(),
+    service: 'pocket-relay', version: VERSION, state: bound() ? 'claimed' : 'unclaimed', relayId: cfg.relayId, account: cfg.account, time: now(),
     features: ['ws', 'objects', 'blobs', ...(blobs.presign ? ['presign'] : [])],
     limits: { envelope: cfg.limits.envelope, object: { ...cfg.limits.objects }, blob: cfg.limits.blob },
   })
@@ -309,7 +339,12 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     const m = req.method
     ctx.op = `${m} /${p.slice(0, 2).join('/')}`
     if (m === 'GET' && url.pathname === '/v1/info') { ctx.quiet = true; return sendJson(res, 200, info()) }
-    if (m === 'GET' && url.pathname === '/.well-known/pocket-relay') { ctx.quiet = true; return sendJson(res, 200, { relayId: cfg.relayId, account: cfg.account, version: VERSION }) }
+    if (m === 'GET' && url.pathname === '/.well-known/pocket-relay') {
+      ctx.quiet = true
+      return sendJson(res, 200, bound() ? { v: 1, state: 'claimed', relayId: cfg.relayId, account: cfg.account, version: VERSION } : { v: 1, state: 'unclaimed' })
+    }
+    if (m === 'POST' && url.pathname === '/v1/claim') return claimRoute(req, res, ctx)
+    if (!bound()) claimFail('unclaimed')
     if (m === 'GET' && url.pathname === '/v1/health') { ctx.quiet = true; return sendJson(res, 200, { ok: true, version: VERSION }) }
     if (m === 'GET' && url.pathname === '/v1/metrics') {
       if (!isLoopback(req)) fail('not-found')
@@ -360,6 +395,82 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     if (p[0] === 'v1' && p[1] === 'o' && p.length >= 3) return routeObjects(req, res, ctx, url, p)
     if (p[0] === 'v1' && p[1] === 'b' && p.length >= 4) return routeBlobs(req, res, ctx, url, p)
     fail('not-found')
+  }
+
+  // ---- claim (RELAY.md §12.1) -------------------------------------------------------------------------------------
+  // Errors of the claim flow repeat their code as `code` next to `error`.
+  const claimFail = (code, detail, extra = {}) => fail(code, detail, { code, ...extra })
+  const claimHits = new Map()          // client IP → times of claim attempts in the last minute
+  const CLAIM_TRIES = 5
+
+  async function claimRoute(req, res, ctx) {
+    ctx.op = 'claim'
+    if (bound()) claimFail('claimed')
+    const t = now()
+    const hits = (claimHits.get(ctx.ip) ?? []).filter((x) => t - x < 60_000)
+    if (hits.length >= CLAIM_TRIES) claimFail('rate', 'claim attempts', { retryAfter: Math.max(1, Math.ceil((hits[0] + 60_000 - t) / 1000)) })
+    hits.push(t)
+    if (claimHits.size > 100_000) claimHits.clear()          // many addresses: the 256-bit code is the real protection
+    claimHits.set(ctx.ip, hits)
+    let j
+    try { j = await readJson(req, 4096) } catch (e) { claimFail(e instanceof RelayError ? e.code : 'bad-request', 'JSON body') }
+    if (typeof j.claim !== 'string' || !CLAIM_RE.test(j.claim)) claimFail('bad-claim')
+    if (typeof j.relayId !== 'string' || !RELAY_ID_RE.test(j.relayId)) claimFail('bad-request', 'relayId')
+    if (!validAccount(j.account)) claimFail('bad-request', 'account (one account id, at most 128 characters)')
+    if (bound()) claimFail('claimed')                    // another claim won while this body was read
+    if (!claimMatches(j.claim, readClaim(cfg.dataDir))) claimFail('bad-claim')
+    bindTo({ relayId: j.relayId, account: j.account })
+    ctx.acct = j.account
+    sendJson(res, 200, { ok: true, relayId: j.relayId, account: j.account })
+    announce({ claimed: true })
+    purgeOtherAccounts(j.account)
+  }
+
+  /** Bind to a relay id and an account: binding.json first, then the claim code goes, then this process serves. */
+  function bindTo({ relayId, account }) {
+    writeBinding(cfg.dataDir, { relayId, account, at: now() })
+    removeClaim(cfg.dataDir)
+    cfg.relayId = relayId; cfg.account = account; bindSource = 'claim'
+    logger.info('claimed', { relayId, account })
+  }
+
+  /** binding.json went away (reset-claim) or changed: drop every socket and token, then serve the new state. */
+  function rebind(next) {
+    hub.closeAll(4403, 'unclaimed')
+    tokens.clear(); byDevice.clear(); nonces.clear()
+    if (next) {
+      cfg.relayId = next.relayId; cfg.account = next.account; bindSource = 'claim'
+      logger.info('claimed', { relayId: next.relayId, account: next.account, from: 'binding.json' })
+      purgeOtherAccounts(next.account)
+    } else {
+      logger.info('unclaimed', { was: cfg.relayId })
+      cfg.relayId = null; cfg.account = null; bindSource = null
+      ensureClaim(cfg.dataDir, now())
+    }
+    announce()
+  }
+
+  /** A claimable relay re-reads its binding and claim code, so `reset-claim` run in another process takes effect here. */
+  function syncBinding() {
+    if (bindSource === 'config') return
+    try {
+      const b = readBinding(cfg.dataDir)
+      if (bindSource === 'claim' && (!b || b.relayId !== cfg.relayId || b.account !== cfg.account)) rebind(b)
+      else if (!bindSource && b) rebind(b)
+      else if (!bindSource) { if (!readClaim(cfg.dataDir)) ensureClaim(cfg.dataDir, now()); announce() }
+    } catch (e) { logger.warn('binding-sync-failed', { error: String(e?.code || e?.message || e).slice(0, 120) }) }
+  }
+
+  /** A relay bound to one account keeps nothing of others (left from before a reset-claim). */
+  async function purgeOtherAccounts(account) {
+    try {
+      const accts = new Set([...store.all('acctsWithData'), ...store.all('identAccts')].map((r) => r.acct))
+      for (const a of accts) {
+        if (a === account) continue
+        const d = await purgeAccount(a, { forget: true })
+        logger.info('purge-other-account', { acct: a, objects: d.objects, blobs: d.blobs, queued: d.queued })
+      }
+    } catch (e) { logger.error('purge-other-account-failed', { error: String(e?.message || e).slice(0, 160) }) }
   }
 
   async function routeObjects(req, res, ctx, url, p) {
@@ -467,12 +578,42 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     if (!ctx.quiet || status >= 400) logger.info(ctx.op, { acct: ctx.acct, addr: ctx.addr, status, bytes: ctx.bytes, ms: Date.now() - t0, ip: ctx.ip })
   }
 
-  // ---- server ---------------------------------------------------------------------------------------------------
+  // ---- TLS (RELAY.md §12.1): own self-signed certificate, certificate files, or plain HTTP behind a proxy ---------
+  // The self-signed certificate is made for the public address (configured, or reported by coordination and kept in
+  // public.json); it is replaced only when that address changes. Its pin goes into the connection line.
+  const confAddr = configuredAddress(cfg)
+  let publicHost = confAddr?.host ?? (cfg.tlsMode !== 'off' ? readPublic(cfg.dataDir)?.host ?? null : null)
+  // Without publicUrl, a relay that terminates TLS itself asks coordination which address its requests come from
+  // (GET <coord.url>/v2/whoami → {ip}) on every start, before it makes a certificate, and assumes devices reach it
+  // there on its listening port. A failed lookup keeps the address from the last start (public.json).
+  let whoamiError = null, whoamiDelay = whoamiRetryMs
+  const needWhoami = () => !confAddr && cfg.tlsMode !== 'off' && !!cfg.coord.url && !!fetchImpl
+  async function lookupPublic(timeoutMs = 10_000) {
+    try {
+      const ip = await whoami({ coordUrl: cfg.coord.url, fetchImpl, timeoutMs })
+      whoamiError = null
+      if (nonPublicIp(ip)) logger.warn('public-address', { host: ip, note: 'not a public internet address, set publicUrl if devices use another' })
+      if (ip !== publicHost) logger.info('public-address', { host: ip, was: publicHost ?? '-' })
+      publicHost = ip
+      writePublic(cfg.dataDir, ip, now())
+      return true
+    } catch (e) {
+      whoamiError = String(e?.code || e?.message || e).slice(0, 120)
+      logger.warn('public-address-failed', { error: whoamiError })
+      return false
+    }
+  }
+  if (needWhoami()) await lookupPublic(5000)          // not listening yet: do not wait long
+  let selfCert = cfg.tlsMode === 'self' ? ensureSelfSigned({ dir: F.tlsDir, host: publicHost, now: now() }) : null
+  if (selfCert?.created) logger.info('tls-self-signed', { host: selfCert.host ?? '-', pin: selfCert.pin, reason: selfCert.reason })
   let server
-  const tlsCtx = () => ({ cert: fs.readFileSync(cfg.tls.cert), key: fs.readFileSync(cfg.tls.key) })
+  const tlsCtx = () => cfg.tlsMode === 'self' ? { cert: selfCert.certPem, key: selfCert.keyPem } : { cert: fs.readFileSync(cfg.tls.cert), key: fs.readFileSync(cfg.tls.key) }
   let certStamp = ''
   const stampOf = () => { try { return [fs.statSync(cfg.tls.cert).mtimeMs, fs.statSync(cfg.tls.key).mtimeMs].join('/') } catch { return '' } }
-  if (cfg.tls) { server = https.createServer({ ...tlsCtx() }); certStamp = stampOf() } else server = http.createServer()
+  if (cfg.tlsMode === 'off') server = http.createServer()
+  else { server = https.createServer({ ...tlsCtx() }); if (cfg.tlsMode === 'files') certStamp = stampOf() }
+  /** Pin of the certificate this relay serves (null behind a proxy). */
+  const currentPin = () => { try { return cfg.tlsMode === 'self' ? selfCert.pin : cfg.tlsMode === 'files' ? pinOf(fs.readFileSync(cfg.tls.cert, 'utf8')) : null } catch { return null } }
   server.requestTimeout = 0               // big uploads over slow links; idle sockets are timed out below
   server.headersTimeout = 30_000
   server.keepAliveTimeout = 65_000
@@ -489,6 +630,11 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
   server.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url, 'http://relay')
     if (url.pathname !== '/v1/ws') { socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); return }
+    if (!bound()) {
+      const body = '{"error":"unclaimed","code":"unclaimed"}'
+      socket.end(`HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n${body}`)
+      return
+    }
     const ip = ipOf(req)
     if (cfg.trustProxy && [...hub.conns].filter((c) => c.ip === ip).length >= cfg.limits.connectionsPerIp) {
       socket.end('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); return
@@ -508,6 +654,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
       for (const [d, list] of byDevice) { const live = list.filter((x) => tokens.has(x)); if (live.length) byDevice.set(d, live); else byDevice.delete(d) }
       for (const [k, e] of nonces) if (e < t) nonces.delete(k)
       challengeHits.clear()
+      for (const [ip, hits] of claimHits) if (!hits.some((x) => t - x < 60_000)) claimHits.delete(ip)
     }, 60_000)
     tokenTimer.unref?.()
     if (blobs.backends.length) {
@@ -515,7 +662,11 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
       probeTimer = setInterval(() => blobs.probe(), 10 * 60_000)
       probeTimer.unref?.()
     }
-    if (cfg.tls) {
+    if (bindSource !== 'config') {
+      bindingTimer = setInterval(syncBinding, bindingPollMs)
+      bindingTimer.unref?.()
+    }
+    if (cfg.tlsMode === 'files') {
       certTimer = setInterval(() => {
         const s = stampOf()
         if (s && s !== certStamp) { try { server.setSecureContext(tlsCtx()); certStamp = s; logger.info('tls-reloaded', {}) } catch (e) { logger.warn('tls-reload-failed', { error: String(e?.message || e).slice(0, 80) }) } }
@@ -524,17 +675,79 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     }
   }
 
+  // ---- the connection line (RELAY.md §12.1) -----------------------------------------------------------------------
+  let listenPort = cfg.listen.port
+  let shown = { key: null }
+
+  /** Ask coordination again (the address was unknown at start); a self-signed certificate follows the address. */
+  async function discover() {
+    if (!(await lookupPublic())) return false
+    if (cfg.tlsMode === 'self') {
+      const c = ensureSelfSigned({ dir: F.tlsDir, host: publicHost, now: now() })
+      if (c.pin !== selfCert.pin) {
+        selfCert = c
+        server.setSecureContext(tlsCtx())
+        logger.info('tls-self-signed', { host: publicHost, pin: c.pin, reason: c.reason })
+      }
+    }
+    return true
+  }
+  function scheduleWhoami() {
+    clearTimeout(whoamiTimer)
+    whoamiTimer = setTimeout(async () => {
+      if (await discover()) { announce(); return }
+      whoamiDelay = Math.min(whoamiDelay * 2, 15 * 60_000)
+      scheduleWhoami()
+    }, whoamiDelay)
+    whoamiTimer.unref?.()
+  }
+
+  /**
+   * Write connect.txt and print the connection line when it changed (claimable relays: not claimed yet, or bound by a
+   * claim). Relays bound by their configuration print nothing; `connect-string` still works for them.
+   */
+  function announce({ claimed = false } = {}) {
+    if (bindSource === 'config') return
+    let inf
+    try { inf = connectInfo({ cfg, port: listenPort, now: now() }) } catch (e) { inf = { line: null, why: String(e?.message || e).slice(0, 80) } }
+    if (!inf.line) {
+      const key = `why:${inf.why}:${whoamiError}`
+      if (shown.key !== key) { shown.key = key; print(noLineText(inf.why, { cfg, port: listenPort, error: whoamiError, retrySeconds: whoamiTimer ? Math.max(1, Math.round(whoamiDelay / 1000)) : null })) }
+      return
+    }
+    if (shown.key === inf.line && !claimed) return
+    shown.key = inf.line
+    try { writeFileAtomic(F.connect, inf.line + '\n', 0o600) } catch (e) { logger.warn('connect-file-failed', { error: String(e?.code || e?.message || e).slice(0, 80) }) }
+    try {
+      if (cfg.tlsMode === 'files' && !inf.publicCa && publiclyTrusted(fs.readFileSync(cfg.tls.cert, 'utf8'), null, { anyHost: true, now: now() })) {
+        logger.warn('tls-pinned-ca-certificate', { host: inf.host, note: 'tls.cert is from a public CA but devices pin it here (an IP address, or a name it does not cover), and the pin breaks at the next renewal. Put a domain name it covers in publicUrl, or use the self-signed certificate' })
+      }
+    } catch { /* only a hint */ }
+    print(connectBlock(inf, { file: F.connect, claimed }))
+  }
+
+  function announceStartup() {
+    if (needWhoami() && !publicHost) scheduleWhoami()
+    announce()
+  }
+
   return {
     cfg, store, keys, cutoffs, quota, objects, blobs, hub, tokens, server, log: logger,
+    get state() { return { bound: bound(), source: bindSource, relayId: cfg.relayId, account: cfg.account, publicHost, pin: currentPin() } },
+    syncBinding,
     sweep, pollAccount, applyRevocations, applyPurge, purgeAddr,
-    listen(port = cfg.listen.port, host = cfg.listen.host) {
-      return new Promise((resolve, reject) => {
+    async listen(port = cfg.listen.port, host = cfg.listen.host) {
+      await new Promise((resolve, reject) => {
         server.once('error', reject)
-        server.listen(port, host, () => { server.off('error', reject); start(); resolve(server.address()) })
+        server.listen(port, host, () => { server.off('error', reject); start(); resolve() })
       })
+      listenPort = server.address().port
+      announceStartup()
+      return server.address()
     },
     async close() {
       keys.stop(); clearTimeout(pollTimer); clearTimeout(sweepTimer); clearInterval(tokenTimer); clearInterval(probeTimer); clearInterval(certTimer)
+      clearInterval(bindingTimer); clearTimeout(whoamiTimer)
       hub.close()
       await new Promise((r) => { server.close(() => r()); setTimeout(r, 2000).unref?.(); server.closeAllConnections?.() })
       store.close()

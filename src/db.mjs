@@ -137,6 +137,7 @@ export class Store {
     p('purgeSeen', 'SELECT at FROM purges WHERE id = ?')
     p('purgeAdd', 'INSERT OR IGNORE INTO purges (id, at) VALUES (?, ?)')
     p('purgeOld', 'DELETE FROM purges WHERE at < ?')
+    p('identAccts', 'SELECT DISTINCT acct FROM idents')
     p('acctsWithData', `SELECT DISTINCT acct FROM realms UNION SELECT DISTINCT acct FROM blobs UNION SELECT DISTINCT acct FROM queue`)
   }
 

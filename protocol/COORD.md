@@ -6,6 +6,8 @@ Crypto and data formats: [E2EE.md](E2EE.md). Relays: [RELAY.md](RELAY.md). Old �
 
 > **中文摘要**　协调服务器管「谁是谁、谁能连谁」:账号与登录(照旧)、每台设备的公钥与虚拟地址、设备锁日志(只存、只校验、
 > 只转发,签不出)、包好的内容钥匙(打不开)、短期中继票据、设备表(netmap)、控制推送、中继登记、撤销名单、清除令。
+> 自建中继可以只有公网 IP、没有域名(照 Tailscale 的 derper):中继自签证书、打印带证书指纹和认领码的连接串,协调钉住指纹去认领,
+> 设备从 netmap 拿到指纹,连它时也只认这个指纹(§8、§10)。
 > 它不再存、不再转任何对话内容;双跑期内老接口照旧给老版本用(MAPPING.md)。
 
 ---
@@ -170,12 +172,24 @@ copy of its token — cannot report transcripts in plaintext any more.
   "lock": { "seq", "h", "genesis" },
   "devices": [ { "id", "addr", "kind", "platform", "name", "sig", "kx", "status", "online", "lastSeen", "ver"?, "v1"?: { "agentId" } } ],
   "relay": { "id": "hk1", "url": "https://pocket.pocketcli.net/relay", "region": "hk", "kind": "official" },
-  "relays": [ { "id", "url", "region", "kind": "official" | "self", "state": "verified" | "unverified" } ],
+  "relays": [ { "id", "url", "region", "kind": "official" | "self", "state": "verified" | "unverified", "name"?, "pin"? } ],
   "prefs": { "listDays": 2 }, "lang": "zh",
   "asr": { "official": { "url": "https://pocket.pocketcli.net/asr", "aud": "asr:official" } } }
 ```
 `ver` increases on every change; the control socket announces it. Devices verify the signature (E2EE §12.3) and treat
 device keys in it as hints only.
+
+`pin` (optional, on `relay` and on entries of `relays`; only self-hosted relays registered with one, §10): the relay's
+certificate fingerprint, `"sha256:"` + the lowercase hex SHA-256 of its leaf certificate (DER). When the current relay has
+a `pin`, devices connecting to it — WebSocket and HTTP, directly or through an HTTP proxy tunnel — use **no root store at
+all** (neither system roots nor the Pocket root, so a public certificate somebody obtains for that IP does not help) and
+accept the connection only if the SHA-256 of the leaf certificate equals the pin; they compare after the TLS handshake and
+before writing a single byte, and on a mismatch close the connection and report "the relay's certificate fingerprint
+doesn't match" (then retry with back-off; a new netmap with another pin or URL makes them reconnect at once). Certificate
+expiry and names are not checked for a pinned relay (like Tailscale's derper in IP mode). Addresses the relay hands out
+that point elsewhere (presigned object-storage URLs, RELAY.md §6.4) are not pinned: they use public CAs and the usual
+address checks; an address on the relay's own host and port keeps the pin. A relay without `pin` is reached as before
+(public CAs). A `pin` field that is present but malformed is still enforced (the connection fails), never ignored.
 
 ## 9. Control WebSocket
 `GET /v2/ws` (Bearer; the token must be bound to a device). One per device. Server → device events:
@@ -206,17 +220,71 @@ after 90 s; token revocation closes with 4401.
 
 ## 10. Relay registry
 - Official relays are server configuration (`hk1` today).
-- `POST /v2/relays` `{ "url": "https://…", "name": "…" }` (phone; ≤ 3 per account) → `{ "relayId": "r_<10 chars>", "account": "<acct>",
-  "config": { "relayId", "account", "coord": { "url", "pinnedKeys" } } }` — everything the operator pastes into the relay's
-  config; nothing secret.
-- `POST /v2/relays/{id}/verify` → the server fetches `<url>/.well-known/pocket-relay` and requires `relayId` and
-  `account` to match. SSRF rules: `https` only, port 443 or 8443, DNS must resolve to public unicast addresses only
-  (checked again on connect), 5 s timeout, ≤ 4 KiB response, no redirects. → `{ "state": "verified" }` or the reason.
-  The lab switch that relaxes these rules (`POCKET_RELAY_VERIFY_LAB=1`, loopback and any port) is ignored, with an error
-  in the log, when the server runs in production (`NODE_ENV=production`, or its signing keys live under `/etc`).
+- Self-hosted relays come in two shapes:
+  - **with a domain** and a certificate from a public CA (port 443 or 8443): the operator writes `relayId` / `account`
+    into the relay's config, then the App verifies it (below);
+  - **with only a public IP**, no domain (like Tailscale's derper in IP mode): the relay starts unclaimed, makes a
+    self-signed certificate and prints a connection string `pocket-relay://<host>:<port>?pin=sha256:<hex>&claim=<code>`
+    (RELAY.md). The App splits it and registers with `pin` and `claim`; coordination claims the relay over a TLS
+    connection pinned to that fingerprint, and the relay is registered and verified in one step. Devices get the `pin`
+    in the netmap and pin it too (§8).
+- `POST /v2/relays` (approved phone; ≤ 3 per account)
+  ```json
+  { "url": "https://<host>:<port>", "name"?: "…", "pin"?: "sha256:<64 hex>", "claim"?: "<code>" }
+  ```
+  Address rules (else `400 relay-url`): `https` only; no user info, query or fragment; ≤ 300 characters. A host that is an
+  **IP literal** must be a public unicast address (SSRF rules below) **and must carry `pin`** (a self-signed relay is the
+  only kind reachable by IP). Port: without `pin` 443 or 8443 (public-CA certificates, unchanged); with `pin` 443 or
+  1024–65535. A domain may carry a `pin` too (self-signed certificate on a domain); its port then follows the `pin` rule.
+  The URL may end in a path prefix, with or without `pin` (a relay behind a reverse proxy, e.g. `https://<ip>:443/relay`):
+  only `/[A-Za-z0-9._~/-]*`, at most 200 characters; and since URL parsers silently rewrite some spellings (`/a/../b`,
+  `%2e%2e`, `\`, tabs and newlines), the address as written may not contain `..`, `%`, `\`, white space or control
+  characters at all (leading and trailing white space is trimmed first). Trailing slashes are dropped. `/v1/claim`,
+  `/.well-known/pocket-relay` and everything devices use (`/v1/ws`, …) are appended to the prefix.
+  `pin` is `"sha256:"` + 64 hex digits (upper case is accepted and stored lower case; malformed → `400 relay-url`).
+  `claim` is printable ASCII without spaces, 4–256 characters (malformed → `400 relay-claim-rejected`); coordination passes
+  it to the relay and neither stores nor logs it.
+  - **Without `claim`** (the operator configures the relay by hand) → stored as `unverified` (with its `pin`, if any) →
+    `{ "relayId": "r_<10 chars>", "account": "<acct>", "state": "unverified", "pin"?: "…",
+    "config": { "relayId", "account", "coord": { "url", "pinnedKeys" } } }` — everything the operator pastes into the
+    relay's config; nothing secret. Then `POST /v2/relays/{id}/verify`.
+  - **With `claim`**: coordination derives `relayId` = `r_` + 10 characters from (account, claim code) and sends
+    `POST <url>/v1/claim { "claim", "relayId", "account" }` through the client below (with `pin`: pinned TLS).
+    The relay answers `200 { "ok": true, "relayId", "account" }` (the same values) → the relay is stored as
+    `{ id, url, name, pin, state: "verified" }`, the netmap changes, and the answer is
+    `{ "relayId", "account", "state": "verified", "pin": "sha256:…" | null }`. Because the same code gives the same
+    `relayId`, an App that retries after losing that answer gets `409` (already claimed) from the relay; coordination then
+    reads `<url>/.well-known/pocket-relay` (same pinned connection rules) and, when it shows exactly this `relayId` and
+    account — which nobody without the claim code can arrange — treats the claim as done. Anything else registers nothing:
+    | Answer | When |
+    |---|---|
+    | `409 relay-pin-mismatch` | the relay's leaf certificate does not hash to `pin` (the request — and the claim code — was never sent) |
+    | `409 relay-claim-rejected` | the relay answered 403 (wrong code), or 409 (already claimed) while its `/.well-known/pocket-relay` shows another `relayId` / account, or a 200 that does not echo this `relayId` and account |
+    | `502 relay-unreachable` | no connection or no answer within 5 s ("Couldn't reach `<host>:<port>`: check that the server's firewall / security group allows this port"); unknown host; resolves to a non-public address; certificate not valid (no `pin`); a redirect, more than 4 KiB, or another status (e.g. 404 — not a Pocket relay, or too old) |
+    | `400 relay-url` | the address rules above |
+    | `429 rate` | 3 relays already; 10 verifications and claims per account per hour together; another claim of the account still running; the relay itself answered 429 (too many claim attempts there) |
+- `POST /v2/relays/{id}/verify` → the server fetches `<url>/.well-known/pocket-relay` (pinned TLS when the relay has a
+  `pin`) and requires `relayId` and `account` to match → `{ "state": "verified" }`; `409 relay-unverified` when they do
+  not match, `409 relay-pin-mismatch`, or `502 relay-unreachable` with the reason (as in the table). A failed verification
+  does not demote a relay that is already verified.
+- **SSRF rules** for every connection coordination makes to a self-hosted relay (verify, claim): `https` only; the port
+  rules above; an IP literal must be public unicast, and every address a host name resolves to must be public unicast —
+  checked in the resolver before connecting and again on the socket's actual peer address after connecting; one fresh
+  connection per request (no pooling); 5 s for the whole exchange; response ≤ 4 KiB; redirects are not followed. With
+  `pin`, no root store is used: the leaf certificate's SHA-256 must equal `pin`, checked after the handshake and before the
+  request is written. The lab switch that relaxes these rules (`POCKET_RELAY_VERIFY_LAB=1`: loopback / private addresses
+  and any port; loopback / private IP literals may then omit `pin`) is ignored, with an error in the log, when the server
+  runs in production (`NODE_ENV=production`, or its signing keys live under `/etc`).
 - `POST /v2/account/relay` `{ "relayId": "hk1" | "r_…" }` (phone) → sets the account's relay (must be official or a
   verified relay of the account); pushes `relay` and `netmap`. Computers then re-upload their realm to the new relay.
 - `DELETE /v2/relays/{id}` (not while it is the account's relay).
+
+### 10.1 Who am I
+`GET /v2/whoami` (no authentication) → `{ "ip": "<the caller's address>" }` with `Cache-Control: no-store` — the address
+coordination sees, by the same rule as its rate limits (the TCP peer; `CF-Connecting-IP` only when the server is deployed
+behind Cloudflare; IPv4-mapped IPv6 is shown as IPv4). A self-hosted relay or speech gateway asks once at startup to learn
+its public IP for the connection string it prints. 30 requests per IP per minute (`429 rate`). Answers even while the v2
+signing keys are unavailable.
 
 ## 11. Revocation feed and purge orders
 - `GET /v2/relay/revocations?acct=<acct>&since=<cursor>` (public, no auth; `acct` required) → signed document
@@ -279,7 +347,7 @@ pending   (pending_id PK, did, acct, created_at, expires_at)
 lock_log  (acct, seq, payload BLOB, sig BLOB, hash, at, PRIMARY KEY (acct, seq))
 lock_archive (acct, archived_at, seq, payload, sig, hash)
 grants    (id INTEGER PK, acct, to_did, realm, by_did, epochs TEXT, seal TEXT, at)
-relays    (id PK, acct NULL = official, url, name, region, state, created_at, verified_at)
+relays    (id PK, acct NULL = official, url, name, region, state, reason, created_at, verified_at, pin)
 account_relay (acct PK, relay_id, since)
 revocations (id INTEGER PK, acct, addr, did, nbf, gone, at)
 purge_queue (id INTEGER PK, relay_id, order_doc TEXT, next_try, tries, created_at)
@@ -293,7 +361,8 @@ purge_queue (id INTEGER PK, relay_id, order_doc TEXT, next_try, tries, created_a
 | Lock appends | 60 per account per hour; payload ≤ 16 KiB |
 | Grants | 50 per call; 64 KiB each; 500 stored per device |
 | Tickets | 60 per device per hour (ASR: 120) |
-| Relays | 3 registered per account; 10 verifications per hour |
+| Relays | 3 registered per account; 10 verifications and claims per account per hour; one claim at a time |
+| `/v2/whoami` | 30 per IP per minute |
 | Resets | 3 per account per 30 days |
 | Control sockets | 1 per device (a new one replaces the old) |
 
@@ -306,4 +375,4 @@ uses which path, what old Apps see, downgrade protection, when plaintext is dele
 `bad-request`, `bad-key`, `bad-name`, `bad-proof`, `stale`, `not-bound`, `revoked`, `suspended`, `no-lock`,
 `genesis-not-allowed`, `head`
 (+ `head`), any E2EE validation code (`bad-sig`, `not-admin`, …), `not-found`, `not-admin`, `relay-unverified`,
-`relay-unreachable`, `rate`, `reset-window`, `password`, `code`.
+`relay-unreachable`, `relay-url`, `relay-pin-mismatch`, `relay-claim-rejected`, `rate`, `reset-window`, `password`, `code`.

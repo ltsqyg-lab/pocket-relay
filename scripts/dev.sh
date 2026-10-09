@@ -6,6 +6,10 @@
 #
 #   relay/scripts/dev.sh start | stop | status | logs
 #   relay/scripts/dev.sh self <relayId> <account>     restart the self-hosted relay bound to that relay id and account
+#   relay/scripts/dev.sh claimable                    restart the self-hosted relay unclaimed (RELAY.md §12.1): its own
+#                                                     self-signed certificate, claimed with POST /v1/claim; data in
+#                                                     $LAB/relay/claimable; prints the pocket-relay:// line
+#   relay/scripts/dev.sh line | reset-claim           the claimable relay's line again / unbind it and make a new claim code
 #
 # Trust: coordination keys from $LAB/coord-keys.json (written by server/lab-v2.sh); without it a lab key is generated
 # here ($LAB/relay/lab-coord.json) and only tickets signed with that key are accepted. TLS: a 127.0.0.1 certificate
@@ -71,7 +75,7 @@ ensure_s3() {
 write_configs() {
   PINNED=$(cat "$PINNED_FILE")
   if [ -n "$COORD_URL" ]; then COORD_JSON="\"$COORD_URL\""; else COORD_JSON=null; fi
-  SELF_ID=r_selfhost01; SELF_ACCT=u_lab_self
+  SELF_ID=r_selfhost01; SELF_ACCT=u_lab_self; SELF_MODE=configured
   [ -f "$RUN/self.env" ] && . "$RUN/self.env"
   cat > "$RUN/hk1.json" <<EOF
 { "relayId": "hk1", "account": "*", "publicUrl": "https://127.0.0.1:18600",
@@ -96,7 +100,29 @@ EOF
   "blobs": { "store": "disk" }
 }
 EOF
+  cat > "$RUN/claimable.json" <<EOF
+{ "publicUrl": "https://127.0.0.1:18610",
+  "listen": { "host": "127.0.0.1", "port": 18610 },
+  "tls": "self",
+  "coord": { "url": $COORD_JSON, "pinnedKeys": $PINNED, "pollSeconds": 30 },
+  "dataDir": "$RUN/claimable",
+  "blobs": { "store": "disk" }
 }
+EOF
+  if [ "$SELF_MODE" = claimable ]; then SELF_CFG=$RUN/claimable.json; else SELF_CFG=$RUN/self.json; fi
+}
+
+# the claimable relay has its own certificate (not from the lab CA) and answers only /v1/info until it is claimed
+wait_info() {
+  i=0
+  while [ $i -lt 40 ]; do
+    if curl -sfk -m 2 --noproxy '*' "$1/v1/info" >/dev/null 2>&1; then return 0; fi
+    i=$((i + 1)); sleep 0.25
+  done
+  return 1
+}
+wait_self() { if [ "$SELF_MODE" = claimable ]; then wait_info https://127.0.0.1:18610; else wait_up https://127.0.0.1:18610; fi; }
+self_cli() { NODE_EXTRA_CA_CERTS=$CA/ca.crt node "$RELAY/src/main.mjs" "$1" --config "$RUN/claimable.json"; }
 
 start_one() {   # name config
   if pid_alive "$RUN/$1.pid"; then echo "$1 already running (pid $(cat "$RUN/$1.pid"))"; return; fi
@@ -127,25 +153,37 @@ stop_one() { if pid_alive "$RUN/$1.pid"; then kill "$(cat "$RUN/$1.pid")" 2>/dev
 case "${1:-start}" in
   start)
     ensure_ca; ensure_keys; ensure_s3; write_configs
-    start_s3; start_one hk1 "$RUN/hk1.json"; start_one self "$RUN/self.json"
+    start_s3; start_one hk1 "$RUN/hk1.json"; start_one self "$SELF_CFG"
     wait_up https://127.0.0.1:18600 || die "hk1 did not come up; see $RUN/hk1.log"
-    wait_up https://127.0.0.1:18610 || die "self-hosted relay did not come up; see $RUN/self.log"
-    echo "relays up: hk1 https://127.0.0.1:18600 (account *), $(node -e 'const j=require(process.argv[1]);process.stdout.write(j.relayId+" https://127.0.0.1:18610 (account "+j.account+")")' "$RUN/self.json"), fake S3 http://127.0.0.1:18650"
+    wait_self || die "self-hosted relay did not come up; see $RUN/self.log"
+    if [ "$SELF_MODE" = claimable ]; then SELF_DESC="claimable relay https://127.0.0.1:18610 (dev.sh line)"
+    else SELF_DESC=$(node -e 'const j=require(process.argv[1]);process.stdout.write(j.relayId+" https://127.0.0.1:18610 (account "+j.account+")")' "$RUN/self.json"); fi
+    echo "relays up: hk1 https://127.0.0.1:18600 (account *), $SELF_DESC, fake S3 http://127.0.0.1:18650"
     echo "coordination keys: $PINNED_FILE; CA: $CA/ca.crt; logs: $RUN/*.log"
     ;;
   self)
     [ $# -eq 3 ] || die "usage: dev.sh self <relayId> <account>"
-    printf 'SELF_ID=%s\nSELF_ACCT=%s\n' "$2" "$3" > "$RUN/self.env"
+    printf 'SELF_ID=%s\nSELF_ACCT=%s\nSELF_MODE=configured\n' "$2" "$3" > "$RUN/self.env"
     stop_one self; sleep 0.5
     ensure_ca; ensure_keys; ensure_s3; write_configs
     start_one self "$RUN/self.json"
     wait_up https://127.0.0.1:18610 || die "self-hosted relay did not come up; see $RUN/self.log"
     echo "self-hosted relay $2 for account $3 on https://127.0.0.1:18610"
     ;;
+  claimable)
+    printf 'SELF_MODE=claimable\n' > "$RUN/self.env"
+    stop_one self; sleep 0.5
+    ensure_ca; ensure_keys; ensure_s3; write_configs
+    start_one self "$RUN/claimable.json"
+    wait_info https://127.0.0.1:18610 || die "claimable relay did not come up; see $RUN/self.log"
+    self_cli connect-string
+    ;;
+  line) ensure_keys; write_configs; self_cli connect-string ;;
+  reset-claim) ensure_keys; write_configs; self_cli reset-claim ;;
   stop) stop_one hk1; stop_one self; stop_one s3; echo "stopped" ;;
   status)
     for n in hk1 self s3; do if pid_alive "$RUN/$n.pid"; then echo "$n: running (pid $(cat "$RUN/$n.pid"))"; else echo "$n: stopped"; fi; done
     ;;
   logs) tail -n 40 "$RUN/hk1.log" "$RUN/self.log" 2>/dev/null ;;
-  *) die "usage: dev.sh start | stop | status | logs | self <relayId> <account>" ;;
+  *) die "usage: dev.sh start | stop | status | logs | self <relayId> <account> | claimable | line | reset-claim" ;;
 esac

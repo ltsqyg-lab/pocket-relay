@@ -1,6 +1,6 @@
 {
   "name": "pocket-relay",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pocket relay: routes and stores end-to-end encrypted envelopes, objects and attachments between a user's devices. Zero dependencies.",
   "license": "AGPL-3.0-or-later",
   "type": "module",

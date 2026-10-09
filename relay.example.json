@@ -1,20 +1,27 @@
 {
-  // Paste relayId, account and coord from the Pocket App: Settings → Relay → Add your own relay.
+  // Most relays need no configuration file: start it, and paste the line it prints into the Pocket App
+  // (Devices → Relay → Add your own relay). This file lists the settings with their defaults; keep only what you change.
+  // Every value can also come from an environment variable: publicUrl → RELAY_PUBLIC_URL, listen.port → RELAY_LISTEN_PORT…
   // Nothing here is secret. S3 keys (if any) come from the environment variables named below.
-  "relayId": "r_xxxxxxxxxx",
-  "account": "u_xxxxxxxxxxxxxxxxxxxxxxxx",
-  "publicUrl": "https://relay.example.com",
+
+  // Leave both out to have the relay claimed from the App (RELAY.md §12.1). Give both only to bind it by hand.
+  "relayId": null,
+  "account": null,
+
+  // How devices reach the relay. null = ask the coordination server for this server's public IP and use
+  // https://<that IP>:<listen.port>. Set it when that is not right: another port outside (docker run -p 443:8443),
+  // a domain name, a reverse proxy. No path: the App adds relays only at the root of a host and port.
+  "publicUrl": null,
   "listen": { "host": "0.0.0.0", "port": 8443 },
 
-  // Either terminate TLS here (certificate and key files, reloaded when they change) or set "tls": null and run
-  // behind a reverse proxy that handles HTTPS and WebSocket upgrades (then set "trustProxy": true).
-  "tls": { "cert": "/etc/pocket-relay/fullchain.pem", "key": "/etc/pocket-relay/privkey.pem" },
+  // "auto": the relay makes its own self-signed certificate (devices pin it, no domain needed); behind a proxy
+  // (trustProxy true) plain HTTP instead. Or {"cert": "/etc/pocket-relay/fullchain.pem", "key": "/etc/pocket-relay/privkey.pem"}
+  // (reloaded when they change), or null for plain HTTP behind a reverse proxy that terminates TLS.
+  "tls": "auto",
   "trustProxy": false,
 
-  "coord": {
-    "url": "https://pocket.pocketcli.net",
-    "pinnedKeys": [ { "kid": "c1", "pub": "<from the App>", "use": ["keys", "ticket", "netmap", "revocations", "purge"], "nbf": 0, "exp": 0 } ]
-  },
+  // The official coordination server. Its public key is built in (coord.pinnedKeys); change these only for a lab.
+  "coord": { "url": "https://pocket.pocketcli.net" },
 
   "dataDir": "/var/lib/pocket-relay",
 

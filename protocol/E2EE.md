@@ -45,14 +45,14 @@ Non-goals (v1)
 | Coordination server | Pocket (closed source) | accounts, password hashes, device public keys, the lock log, ACL (inside the log), relay registry, grants (ciphertext), coordination signing keys | issue/withhold tickets, suspend devices, see metadata, deny service | forge lock statements, read grants, mint content keys, make a computer obey an unknown device |
 | Relay | Pocket (official) or the user (self-hosted), open source AGPL-3.0 | ciphertext envelopes, objects, blobs; ticket verification keys | drop, delay, reorder, replay ciphertext; see metadata | read or forge content; impersonate devices |
 | Object store (S3-compatible) | a cloud provider | ciphertext blobs | same as relay for blobs | same as relay |
-| ASR gateway | Pocket (official), the user, or nobody | audio for the length of one request (cloud modes only) | hear audio in cloud modes | — (see ASR.md; the official cloud mode is labelled *not end-to-end*) |
+| ASR gateway | Pocket (official), the user, or nobody | audio for the length of one request (cloud modes only) | hear audio in cloud modes | — (see ASR.md) |
 
 Assumptions: TLS (WebPKI) protects transport; device OS key storage protects private keys against other OS users and
 offline disk access; the user compares verification words when approving a device (§6.4 covers when they cannot).
 
 Residual risks the UI and privacy policy must state: metadata (§14); a malicious coordination server can hide lock
-statements from some devices (withholding / equivocation, §5.5) — detectable, not preventable; the official ASR
-cloud mode is not end-to-end; whoever ships the clients could ship a backdoor (mitigated only by publishing this spec
+statements from some devices (withholding / equivocation, §5.5) — detectable, not preventable; cloud voice modes
+necessarily let the gateway hear the audio (the privacy policy says where recordings go); whoever ships the clients could ship a backdoor (mitigated only by publishing this spec
 so others can check behaviour against it).
 
 ## 3. Conventions

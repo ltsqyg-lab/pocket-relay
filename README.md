@@ -1,3 +1,5 @@
+English | [简体中文](README.zh-CN.md)
+
 # Pocket relay
 
 The relay of [Pocket](https://pocket.pocketcli.net), the phone remote control for AI coding sessions (Claude Code,
@@ -23,58 +25,110 @@ same code.
 Protocol: [RELAY.md](protocol/RELAY.md) (this server) and [E2EE.md](protocol/E2EE.md) (the cryptography),
 with shared test vectors in [vectors.json](protocol/vectors.json).
 
-## Requirements
+## Deploy without a domain (recommended)
 
-- Node.js **22.13 or newer** (uses the built-in `node:sqlite`; no npm packages at all), or Docker.
-- A server reachable from the internet over HTTPS (port 443 or 8443). 1 vCPU / 1 GB RAM is plenty for one person.
-- A TLS certificate for its domain — either files the relay reads itself, or a reverse proxy in front of it.
-
-## Run it
-
-**1. Register the relay in the Pocket App** — Settings → Relay → Add your own relay → enter its URL. The App shows the
-values for the configuration: `relayId`, `account` and the coordination keys. None of them is secret.
-
-**2a. With Docker**
+All you need is a server with a public IP address (1 vCPU / 1 GB RAM is plenty for one person) and Docker — like
+Tailscale's DERP servers, no domain name and no certificate authority are involved.
 
 ```sh
 docker build -t pocket-relay .
-mkdir -p /srv/pocket-relay/data /etc/pocket-relay
-cp relay.example.json /etc/pocket-relay/relay.json      # fill in relayId, account, coord.pinnedKeys, tls
-docker run -d --name pocket-relay --restart unless-stopped -p 443:8443 \
-  -v /srv/pocket-relay/data:/var/lib/pocket-relay \
-  -v /etc/pocket-relay:/etc/pocket-relay:ro \
-  pocket-relay
+docker run -d --name pocket-relay --restart unless-stopped -p 8443:8443 -v pocket-relay:/var/lib/pocket-relay pocket-relay
+docker logs pocket-relay
 ```
 
-**2b. With Node directly**
+The log shows one line:
+
+```
+pocket-relay://203.0.113.7:8443?pin=sha256:3f1c…&claim=Qm9x…
+```
+
+1. **Open TCP port 8443** to the internet in the server's firewall and in your cloud provider's security group.
+2. **In the Pocket App: Devices → Relay → Add your own relay, paste this line.** The Pocket coordination server
+   connects to your relay — checking its certificate against the `pin` in the line — and claims it for your account
+   with the one-time `claim` code. From then on the relay serves your account only.
+3. Switch to it in the App. Your computers upload their sessions to it; your phones read from it.
+
+What happens on the first start: the relay asks the coordination server which IP address its requests come from
+(`GET https://pocket.pocketcli.net/v2/whoami`), makes a self-signed certificate for that address (ECDSA P-256, valid 10
+years) and prints the line. The `pin` is the SHA-256 of that certificate: devices check that exact certificate and
+nothing else, so no certificate authority can impersonate your relay. The certificate, the claim and all data stay in
+the `pocket-relay` volume across restarts and upgrades; the line does not change.
+
+**Keep the line to yourself until you have pasted it.** Its claim code lets whoever has it first claim the relay.
+It only exists in the relay's output and in its data directory, works once, and the relay accepts at most 5 tries a
+minute from one address. If it leaked before you used it, make a new one with `reset-claim` (below).
+
+**When the detected address is wrong** (the server reaches the internet through another IP than the one devices
+should use, or you map another outside port such as `-p 443:8443`), say it yourself:
 
 ```sh
-node src/main.mjs --config /etc/pocket-relay/relay.json
+docker run -d --name pocket-relay --restart unless-stopped -p 443:8443 -v pocket-relay:/var/lib/pocket-relay \
+  -e RELAY_PUBLIC_URL=https://203.0.113.7:443 pocket-relay
 ```
 
-**3.** Back in the App, tap **Verify** (the coordination server fetches `https://<your relay>/.well-known/pocket-relay`),
-then **Use this relay**. Your computers re-upload their sessions to it; your phones download from it from then on.
-If it becomes unreachable, the App offers to switch back to the official relay.
+**Without Docker** (Node.js 22.13 or newer; no npm packages at all):
+
+```sh
+RELAY_DATA_DIR=$HOME/pocket-relay node src/main.mjs                       # port 8443
+RELAY_DATA_DIR=$HOME/pocket-relay RELAY_LISTEN_PORT=9443 node src/main.mjs
+```
+
+On IPv6-only servers also set `RELAY_LISTEN_HOST=::`.
+
+## Deploy with a domain
+
+**Behind a reverse proxy** (nginx, Caddy…) that already has a certificate for your domain: terminate HTTPS in the
+proxy, pass WebSocket upgrades for `/v1/ws`, append the client address to `X-Forwarded-For`, and run the relay on
+loopback with plain HTTP:
+
+```sh
+docker run -d --name pocket-relay --restart unless-stopped -p 127.0.0.1:8443:8443 -v pocket-relay:/var/lib/pocket-relay \
+  -e RELAY_TRUST_PROXY=true -e RELAY_PUBLIC_URL=https://relay.example.com pocket-relay
+```
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8443;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_request_buffering off;
+    proxy_read_timeout 120s;
+    client_max_body_size 110m;
+}
+```
+
+The printed line then has no `pin` (devices check your proxy's certificate like any website):
+`pocket-relay://relay.example.com:443?claim=…`. Serve the relay at the root of its own host name (or port): the App
+does not add relays under a path such as `https://example.com/relay`.
+
+**With your own certificate files**: mount them and set `RELAY_TLS='{"cert":"/etc/pocket-relay/fullchain.pem","key":"/etc/pocket-relay/privkey.pem"}'`
+(they are reloaded when they change). A certificate from a public CA for the domain name in `publicUrl` is not pinned,
+so renewals keep working; any other certificate — and any certificate when devices connect by IP address — is pinned
+like the self-signed one.
+
+**A domain without a CA certificate** also works: `RELAY_PUBLIC_URL=https://relay.example.com:8443` with the default
+self-signed certificate (made for that name, pinned).
 
 ## Configuration
 
-A JSON file (comments allowed) and/or environment variables. Every key has an environment variable
-`RELAY_<PATH IN UPPER SNAKE CASE>`: `relayId` → `RELAY_RELAY_ID`, `listen.port` → `RELAY_LISTEN_PORT`,
-`coord.pinnedKeys` → `RELAY_COORD_PINNED_KEYS` (JSON), `blobs` → `RELAY_BLOBS` (JSON). The file path comes from
-`--config`, `RELAY_CONFIG` or `/etc/pocket-relay/relay.json`.
+Environment variables and/or a JSON file (comments allowed; [relay.example.json](relay.example.json) lists everything).
+Every key has an environment variable `RELAY_<PATH IN UPPER SNAKE CASE>`: `publicUrl` → `RELAY_PUBLIC_URL`,
+`listen.port` → `RELAY_LISTEN_PORT`, `coord.pinnedKeys` → `RELAY_COORD_PINNED_KEYS` (JSON), `blobs` → `RELAY_BLOBS`
+(JSON). The file path comes from `--config`, `RELAY_CONFIG` or `/etc/pocket-relay/relay.json`.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `relayId` | — (required) | The id the coordination server gave this relay; tickets must be addressed to it. |
-| `account` | — (required) | `"*"` serves every account (the official relay); otherwise the one account this relay serves. |
-| `publicUrl` | `null` | How devices reach it (informational). |
+| `publicUrl` | `null` | The `https://` address devices use. `null`: the IP the coordination server sees, on `listen.port`. |
 | `listen.host`, `listen.port` | `0.0.0.0`, `8443` | Where to listen. |
-| `tls.cert`, `tls.key` | `null` | PEM files; reloaded automatically when they change. `null` = plain HTTP behind a TLS proxy. |
+| `tls` | `"auto"` | `"auto"`: own self-signed certificate (plain HTTP when `trustProxy` is true). `"self"`: always self-signed. `null`: plain HTTP behind a TLS proxy. `{"cert", "key"}`: PEM files. |
 | `trustProxy` | `false` | Take the client IP from the last `X-Forwarded-For` entry (only behind your own proxy). |
-| `coord.url` | `https://pocket.pocketcli.net` | Where to refresh coordination keys and poll revocations. |
-| `coord.pinnedKeys` | — (required) | Coordination public keys to trust initially: `[{kid, pub, use, nbf, exp}]`. |
+| `relayId`, `account` | `null` | Leave both out: the relay is claimed from the App. Give both to bind it by hand (the official relay: `hk1`, `"*"`). |
+| `coord.url` | `https://pocket.pocketcli.net` | Public address lookup, coordination keys, revocations. |
+| `coord.pinnedKeys` | the official key | Coordination public keys to trust initially: `[{kid, pub, use, nbf, exp}]`. Newer keys signed by these are adopted. |
 | `coord.pollSeconds` | `60` | Revocation polling interval for accounts with live connections. |
-| `dataDir` | `/var/lib/pocket-relay` | Index database, objects, attachments. |
+| `dataDir` | `/var/lib/pocket-relay` | Certificate, claim, index database, objects, attachments. |
 | `blobs` | `{"store": "disk"}` | Attachments on disk, or `{"store": "s3", "backends": [...]}` (below). |
 | `timezone` | `Asia/Shanghai` | Day and month boundaries of traffic quotas. |
 | `quota.dayMB`, `quota.monthMB`, `quota.storeMB` | unlimited | Per-account attachment traffic and storage caps. |
@@ -101,41 +155,39 @@ relay keeps the attachment on its own disk. Objects are named `<prefix><address>
 no content types. The bucket needs no public access: uploads and downloads use presigned URLs valid for an hour and
 ten minutes.
 
-### Behind a reverse proxy
-
-Terminate HTTPS in the proxy, pass WebSocket upgrades for `/v1/ws`, append the client address to `X-Forwarded-For`,
-set `"tls": null`, `"trustProxy": true` and listen on `127.0.0.1`. Example (nginx):
-
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:8443;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_request_buffering off;
-    proxy_read_timeout 120s;
-    client_max_body_size 110m;
-}
-```
-
 ## Operations
 
+- **Print the line again**: `docker exec pocket-relay node src/main.mjs connect-string` (or `node src/main.mjs
+  connect-string` with the same environment). It is also in `connect.txt` in the data directory. Once the relay is
+  claimed the line has no claim code.
+- **Unbind and claim again** (you removed the relay in the App, or want to give it to another account):
+  `docker exec pocket-relay node src/main.mjs reset-claim`. It prints a new line with a new claim code; the running
+  relay closes its connections within a few seconds and waits to be claimed. When another account claims it, what the
+  previous account stored is deleted.
+- **A new IP address** makes a new certificate (and pin): run `reset-claim` and add the relay again. To avoid that, use
+  a static IP (an elastic IP on cloud servers), or a domain in `publicUrl`. To replace the certificate on purpose, delete
+  `tls/` in the data directory, restart, then `reset-claim`.
+- **Upgrade**: rebuild the image and start a new container with the same volume —
+  `docker build -t pocket-relay . && docker rm -f pocket-relay && docker run …` (same command as above). The certificate,
+  the claim and the data stay.
 - **Logs** go to standard output: time, relay id, account, device address, operation, sizes, status, latency and client
-  IP. Never message bytes, tickets, tokens, challenges, presigned URLs or `Authorization` headers.
-- `GET /v1/health` for probes (`node src/main.mjs --health` in the container); `GET /v1/metrics` (loopback only):
-  connection, queue, object and attachment counts.
-- **Data** is a cache of ciphertext. Losing it loses nothing that the computers cannot upload again; there is nothing
-  to back up. Deleted data is gone at once (no trash). Disk use is bounded by the retention settings.
+  IP. Never message bytes, tickets, tokens, challenges, claim codes, presigned URLs or `Authorization` headers.
+- **Health**: `node src/main.mjs --health` (the container's health check) asks `/v1/info`; `GET /v1/health` answers 200
+  once the relay is claimed (503 `unclaimed` before). `GET /v1/metrics` (loopback only): connection, queue, object and
+  attachment counts.
+- **Data** is a cache of ciphertext. Losing it loses nothing that the computers cannot upload again — except the
+  certificate (`tls/`) and the claim (`binding.json`): without them, add the relay again. Deleted data is gone at once
+  (no trash). Disk use is bounded by the retention settings.
 - **Restarts** forget the in-memory session tokens; devices simply authenticate again.
 - Revocations arrive pushed by coordination (`POST /v1/revocations`), forwarded by devices, or by polling; a revoked
   device is disconnected at once and a deleted one's data removed. Purge orders (`POST /v1/purge`, signed by
   coordination) delete an account's or a computer's data.
 
-## Development
+## Development and tests
 
 ```sh
-npm test                      # node --test test/*.test.mjs — the protocol vectors, WebSocket, objects, blobs (with a fake S3), control, config
+node --test                   # or npm test: protocol vectors, WebSocket, objects, blobs (with a fake S3), control, config,
+                              # the self-signed certificate, the claim flow and the relay as a process
 node test/fake-s3.mjs --port 18650 --keys-file keys.json     # the fake S3 used by the tests
 ```
 
@@ -145,29 +197,3 @@ Tests read the protocol vectors from `POCKET_PROTOCOL_DIR`, `./protocol`.
 
 GNU Affero General Public License v3.0 or later — see [LICENSE](LICENSE). If you run a modified relay as a network
 service, its users are entitled to your modified source.
-
----
-
-## 自建中继(中文)
-
-**中继是什么**:Pocket 手机和电脑之间的「邮局」—— 转发两边的加密信封,替不在线的一方暂存,保存电脑上传的加密会话记录和附件。
-它**只经手密文**,看得到「哪台设备、什么时候、多大」,看不到任何内容;不需要 Pocket 的任何秘密,靠协调服务器签的短期票据和设备当场签名认人。
-
-**需要什么**
-1. 一台有公网地址的服务器(1 核 1G 足够一个人用)和一个域名 + HTTPS 证书(可以交给 nginx / Caddy 反代,也可以把证书文件直接配给中继)。
-2. Node.js 22.13 以上,或者 Docker。**不需要对象存储**:附件默认存这台服务器自己的硬盘;想要大容量再接任意 S3 兼容的桶
-   (腾讯云 COS、阿里云 OSS、AWS S3、Cloudflare R2、MinIO,用你自己的账号和钥匙)。
-
-**步骤**
-1. 手机 App:设置 → 中继 → 添加自建中继 → 填中继的网址。App 给出 `relayId`、`account`、协调公钥 —— 这些都不是秘密,原样填进
-   `/etc/pocket-relay/relay.json`(照 `relay.example.json`)。
-2. 启动:`docker run …`(见上文 Run it),或 `node src/main.mjs --config /etc/pocket-relay/relay.json`。
-3. 回到 App 点「验证」(协调服务器会访问 `https://你的中继/.well-known/pocket-relay` 核对),再点「使用这个中继」。电脑会把会话重新加密上传到你的中继。
-4. 中继连不上时 App 会提示切回官方中继。
-
-**安全**:中继里只有密文,附件按随机编号存,不用文件哈希当名字;只服务绑定的那个账号;每台设备凭协调签发、几小时就过期的票据 + 自己私钥的当场签名才能连上;
-撤销的设备立刻断开、数据删除。中继坏了最多是不送 / 晚送,拿不到内容,也造不了假(每个信封都有发件设备的签名)。
-
-**日志**:只记时间、账号、设备地址、操作、大小、状态、耗时、客户端 IP,不记内容、票据、令牌、预签名地址。保留多久由你决定。
-
-**许可**:AGPL-3.0。你改了中继并作为网络服务给别人用,就要把改动开源。

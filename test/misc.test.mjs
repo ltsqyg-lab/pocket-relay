@@ -41,7 +41,8 @@ test('HTTP auth: challenge is single use and expires; info, well-known, health, 
   assert.equal(info.relayId, 'hk1')
   assert.deepEqual(info.features, ['ws', 'objects', 'blobs'])
   assert.equal(info.limits.envelope, 1048576)
-  assert.deepEqual(await (await tfetch(`${r.base}/.well-known/pocket-relay`)).json(), { relayId: 'hk1', account: '*', version: info.version })
+  assert.equal(info.state, 'claimed')
+  assert.deepEqual(await (await tfetch(`${r.base}/.well-known/pocket-relay`)).json(), { v: 1, state: 'claimed', relayId: 'hk1', account: '*', version: info.version })
   assert.equal((await tfetch(`${r.base}/v1/health`)).status, 200)
   const m = await (await tfetch(`${r.base}/v1/metrics`)).json()
   assert.ok('connections' in m && 'queue' in m)
@@ -51,8 +52,9 @@ test('HTTP auth: challenge is single use and expires; info, well-known, health, 
   assert.deepEqual(Object.keys(q), ['day', 'month', 'store'])
 })
 
-test('configuration: file with comments, environment overrides, validation errors', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-cfg-'))
+test('configuration: file with comments, environment overrides, validation errors', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pocket-relay-test-'))
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
   const coord = new Coord()
   const f = path.join(dir, 'relay.json')
   fs.writeFileSync(f, `{
