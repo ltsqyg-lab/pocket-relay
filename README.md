@@ -6,57 +6,129 @@ The relay for [Pocket](https://pocket.pocketcli.net), the phone app for the AI c
 Code, Codex and others). It carries your devices' end-to-end encrypted data and cannot read it. The official relay
 runs this same code, and you can run your own.
 
-## Deploy without a domain (recommended)
+## One-command install (recommended)
 
-You need a server with a public IP and Docker. 1 vCPU and 1 GB of memory is enough for one person. As with Tailscale's
-DERP servers, you don't need a domain or a certificate: the relay makes its own certificate and the app pins it.
+You need a server with a public IP running Ubuntu or Debian (x86_64 or arm64, systemd). 1 vCPU and 1 GB of memory is
+enough for one person. You don't need a domain or a certificate. One command installs the relay and the
+[speech service](https://github.com/pocketcli-app/pocket-asr) together:
 
 ```sh
-git clone https://github.com/ltsqyg-lab/pocket-relay && cd pocket-relay
-docker build -t pocket-relay .
+# international edition
+curl -fsSL https://pocket.pocketcli.net/dl/selfhost/install.sh | sudo bash
+
+# mainland China edition (for the mainland China edition of the app)
+curl -fsSL https://api.pocketcli.cn/dl/selfhost/install.sh | sudo bash
+```
+
+It ends with two lines (the script talks in Chinese; these lines are what you need):
+
+```
+ 中继:在 Pocket App「我的 → 服务器 → 添加自建服务器」粘贴这一行
+   pocket-relay://203.0.113.7:8443?pin=sha256:3f1c…&claim=Qm9x…
+
+ 语音服务:在 Pocket App「我的 → 语音识别方式 → 自建语音服务」粘贴这一行
+   pocket-asr://203.0.113.7:8444?pin=sha256:068a…&token=eJLA…
+```
+
+1. Open TCP ports 8443 and 8444 in your cloud provider's firewall / security group (the script opens them in ufw when
+   ufw is on).
+2. In the Pocket app, paste the first line in **Settings → Server → Add self-hosted server** and the second in
+   **Settings → Voice transcription → Self-hosted speech service**. The second line carries an access key and is shown
+   only once.
+
+| Option (after `bash -s --`) | What it does |
+|---|---|
+| `--relay-only` / `--asr-only` | Install, upgrade or uninstall only one of them |
+| `--uninstall` | Stop the services and remove the programs, data, settings and system users (asks first; `--yes` doesn't ask) |
+| `--docker <dir>` | Install no services: put the verified programs and a `docker-compose.yml` into `<dir>` (see Docker below) |
+
+For example, only the relay: `curl -fsSL https://pocket.pocketcli.net/dl/selfhost/install.sh | sudo bash -s -- --relay-only`.
+
+**Upgrade:** run the same command again. The certificate, the claim, the access keys and the speech model are kept, so
+the lines don't change. A relay installed by hand as described below (code in `/opt/pocket-relay`, service
+`pocket-relay`, data in `/var/lib/pocket-relay`) is taken over with its data; its old code moves to
+`/opt/pocket-relay.bak-<time>`.
+
+**What the script does:** checks the system; when there is no Node.js 22.13 or later, downloads Node.js 22 from
+nodejs.org (international) or npmmirror (mainland China) into `/opt/pocket-selfhost/node` and checks its SHA-256,
+leaving any system Node.js alone; downloads the relay and speech service packages (the same files as the open-source
+repositories) from `/dl/selfhost/` on the same server and checks them against the SHA-256 written in the script;
+creates the system users `pocket-relay` and `pocket-asr`, installs the code to `/opt/pocket-relay` and `/opt/pocket-asr`
+and the data to `/var/lib/pocket-relay` and `/var/lib/pocket-asr`, and writes and starts systemd services. Afterwards,
+`sudo pocket-relay connect-string` prints the relay's line again and `sudo pocket-asr new-token` makes a new speech
+service line. Your own settings (such as `RELAY_PUBLIC_URL`) go in `/etc/pocket-relay/env`; then
+`systemctl restart pocket-relay`.
+
+### Two editions
+
+Pocket runs two separate services: the international edition (`pocket.pocketcli.net`) and the mainland China edition
+(`api.pocketcli.cn`). They share no accounts, keys or servers. Install the relay of the edition your app uses:
+
+- **International** (`RELAY_EDITION=intl`, the default): talks to `https://pocket.pocketcli.net`.
+- **Mainland China** (`RELAY_EDITION=cn`): looks up its public IP, fetches the coordination keys and polls revocations
+  only at `https://api.pocketcli.cn`, trusts only that edition's coordination key and connects to nothing outside
+  mainland China. Its install script, Node.js and packages are downloaded from mainland China too.
+
+If you install the wrong one, adding it in the other edition's app fails: the relay refuses the claim and its log says
+which command to reinstall with. The claim code keeps working.
+
+### Before you paste
+
+**Keep the relay's line private until you have pasted it.** Whoever uses the claim code first gets the relay. The code
+works once and only appears in the relay's output and data directory, and the relay allows 5 tries a minute per
+address. If it leaks, run `sudo pocket-relay reset-claim` (see [Operations](#operations)).
+
+The app checks the relay's certificate against `pin` and uses the one-time `claim` code to tie the relay to your
+account. After that it serves only you. Switch to it in the app: your computers upload their sessions to it and your
+phones read from it.
+
+The relay learns its public IP from the coordination server (`GET <coordination>/v2/whoami`) and makes a self-signed
+certificate for it (ECDSA P-256, valid for 10 years). `pin` is that certificate's SHA-256, and devices accept no other
+certificate, so no certificate authority can impersonate your relay. Restarts and upgrades keep the line. If the
+detected address is wrong (the server goes out through another IP, or you publish another port), put
+`RELAY_PUBLIC_URL=https://203.0.113.7:8443` in `/etc/pocket-relay/env` and `systemctl restart pocket-relay`.
+
+## Other ways to deploy
+
+### Docker
+
+Let the install script fetch and verify the programs, then start the relay and the speech service with Docker Compose:
+
+```sh
+curl -fsSL https://pocket.pocketcli.net/dl/selfhost/install.sh | sudo bash -s -- --docker /opt/pocket-docker   # or api.pocketcli.cn
+cd /opt/pocket-docker && docker compose up -d --build
+docker compose logs          # the two lines are in the log
+```
+
+`.env` in that directory holds the edition (`POCKET_EDITION=cn` or `intl`). From mainland China, pulling the base
+images (`node:22-alpine`, `node:22-bookworm-slim`) from Docker Hub is slow or fails: configure a registry mirror for
+Docker first. The mainland China `.env` also points the speech image's apt at `mirrors.aliyun.com`. Without a registry
+mirror, use the one-command install (no Docker needed).
+
+Only the relay, from the repository:
+
+```sh
+git clone https://github.com/pocketcli-app/pocket-relay && cd pocket-relay
+docker build -t pocket-relay .                                     # mainland China: --build-arg RELAY_EDITION=cn
 docker run -d --name pocket-relay --restart unless-stopped -p 8443:8443 -v pocket-relay:/var/lib/pocket-relay pocket-relay
 docker logs pocket-relay
 ```
 
-The log contains a line like this:
+With another published port (`-p 443:8443`), add `-e RELAY_PUBLIC_URL=https://203.0.113.7:443`.
 
-```
-pocket-relay://203.0.113.7:8443?pin=sha256:3f1c…&claim=Qm9x…
-```
+### Without Docker or the script
 
-1. Open TCP port 8443 in the server's firewall and in your cloud provider's security group.
-2. In the Pocket app, go to **Settings → Relay → Add your own relay** and paste the line. Pocket checks the relay's
-   certificate against `pin` and uses the one-time `claim` code to tie the relay to your account. After that it
-   serves only you.
-3. Switch to the relay in the app. Your computers upload their sessions to it and your phones read from it.
-
-**Keep the line private until you have pasted it.** Whoever uses the claim code first gets the relay. The code works
-once and only appears in the relay's output and data directory, and the relay allows 5 tries a minute per address. If
-it leaks, run `reset-claim` (see [Operations](#operations)).
-
-The relay learns its public IP from the coordination server (`GET https://pocket.pocketcli.net/v2/whoami`) and makes a
-self-signed certificate for it (ECDSA P-256, valid for 10 years). `pin` is that certificate's SHA-256, and devices
-accept no other certificate, so no certificate authority can impersonate your relay. Everything is kept in the
-`pocket-relay` volume, so the line doesn't change when you restart or upgrade.
-
-**If the detected address is wrong** (the server goes out through another IP, or you publish another port such as
-`-p 443:8443`), set it:
+Node.js 22.13 or later, no npm packages:
 
 ```sh
-docker run -d --name pocket-relay --restart unless-stopped -p 443:8443 -v pocket-relay:/var/lib/pocket-relay \
-  -e RELAY_PUBLIC_URL=https://203.0.113.7:443 pocket-relay
-```
-
-**Without Docker** (Node.js 22.13 or later, no npm packages):
-
-```sh
-RELAY_DATA_DIR=$HOME/pocket-relay node src/main.mjs                       # port 8443
+RELAY_DATA_DIR=$HOME/pocket-relay node src/main.mjs                       # international, port 8443
+RELAY_EDITION=cn RELAY_DATA_DIR=$HOME/pocket-relay node src/main.mjs      # mainland China
 RELAY_DATA_DIR=$HOME/pocket-relay RELAY_LISTEN_PORT=9443 node src/main.mjs
 ```
 
 On IPv6-only servers, also set `RELAY_LISTEN_HOST=::`.
 
-## Deploy with a domain
+### With a domain
 
 **Behind a reverse proxy** (nginx, Caddy, …) that already has a certificate for your domain: the proxy terminates
 HTTPS, passes WebSocket upgrades for `/v1/ws` and appends the client address to `X-Forwarded-For`, and the relay
@@ -121,9 +193,10 @@ Most relays need none. Settings come from environment variables and/or a JSON fi
 | `listen.host`, `listen.port` | `0.0.0.0`, `8443` | Where to listen. |
 | `tls` | `"auto"` | `"auto"`: own self-signed certificate (plain HTTP when `trustProxy` is true). `"self"`: always self-signed. `null`: plain HTTP behind a TLS proxy. `{"cert", "key"}`: PEM files. |
 | `trustProxy` | `false` | Take the client IP from the last `X-Forwarded-For` entry. Only behind your own proxy. |
+| `edition` | `intl` | `intl` or `cn` (see [Two editions](#two-editions)); sets the defaults of the next two. Variable `RELAY_EDITION`. |
 | `relayId`, `account` | `null` | Leave both out to claim the relay from the app. Set both to bind it by hand (the official relay: `hk1`, `"*"`). |
-| `coord.url` | `https://pocket.pocketcli.net` | Public address lookup, coordination keys, revocations. |
-| `coord.pinnedKeys` | the official key | Coordination public keys trusted at first: `[{kid, pub, use, nbf, exp}]`. Newer keys signed by these are adopted. |
+| `coord.url` | the edition's: `https://pocket.pocketcli.net` / `https://api.pocketcli.cn` | Public address lookup, coordination keys, revocations. Startup fails if it names the other edition's server. |
+| `coord.pinnedKeys` | the edition's official key | Coordination public keys trusted at first: `[{kid, pub, use, nbf, exp}]`. Newer keys signed by these are adopted. Startup fails if it holds the other edition's key. |
 | `coord.pollSeconds` | `60` | How often to poll revocations for accounts with live connections. |
 | `dataDir` | `/var/lib/pocket-relay` | Certificate, claim, index database, objects, attachments. |
 | `blobs` | `{"store": "disk"}` | Attachments on disk, or `{"store": "s3", "backends": [...]}` (below). |
@@ -158,19 +231,20 @@ each relay its own bucket or `prefix`.
 
 ## Operations
 
-- **Print the line again:** `docker exec pocket-relay node src/main.mjs connect-string` (without Docker, run
-  `node src/main.mjs connect-string` with the same environment). It is also in `connect.txt` in the data directory.
+- **Print the line again:** `sudo pocket-relay connect-string` (one-command install), `docker exec pocket-relay node
+  src/main.mjs connect-string` (Docker), or `node src/main.mjs connect-string` with the same environment. It is also in `connect.txt` in the data directory.
   Once the relay is claimed, the line has no claim code.
 - **Claim it again** (you removed it in the app, or want to give it to another account):
-  `docker exec pocket-relay node src/main.mjs reset-claim` prints a line with a new claim code. A running relay drops
+  `sudo pocket-relay reset-claim` (Docker: `docker exec pocket-relay node src/main.mjs reset-claim`) prints a line
+  with a new claim code. A running relay drops
   its connections within seconds and waits to be claimed. If another account claims it, the old account's data is
   deleted.
 - **New IP address:** the relay makes a new certificate and pin. Run `reset-claim` and add the relay in the app again.
   A static IP (an elastic IP on cloud servers) or a domain in `publicUrl` avoids this. To replace the certificate on
   purpose, delete `tls/` in the data directory, restart, then run `reset-claim`.
-- **Upgrade:** `git pull && docker build -t pocket-relay . && docker rm -f pocket-relay`, then the same `docker run`.
-  The volume keeps the certificate, the claim and the data.
-- **Logs** go to standard output: time, relay id, account, device address, operation, sizes, status, latency, client
+- **Upgrade:** run the install command again; with Docker, rebuild with the new code (`docker compose up -d --build`,
+  or `git pull && docker build …` and the same `docker run`). The certificate, the claim and the data are kept.
+- **Logs** go to standard output (`journalctl -u pocket-relay`, `docker logs pocket-relay`): time, relay id, account, device address, operation, sizes, status, latency, client
   IP. Never message bytes, tickets, tokens, challenges, claim codes, presigned URLs or `Authorization` headers.
 - **Health:** `node src/main.mjs --health` (the container health check) asks `/v1/info`. `GET /v1/health` returns 200
   once the relay is claimed (503 `unclaimed` before). `GET /v1/metrics` (loopback only) gives connection, queue,

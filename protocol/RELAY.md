@@ -38,6 +38,7 @@ environment variable `RELAY_<UPPER_SNAKE>`; secrets SHOULD come from the environ
 
 ```json
 {
+  "edition": "intl",                        // "intl" | "cn": which Pocket service (§2.1); sets coord.url / pinnedKeys
   "relayId": "hk1",                         // must equal the `aud` of tickets; null (with account) = claimed later, §12.1
   "account": "*",                           // "*" = any account (official); otherwise the one account this relay serves
   "publicUrl": "https://relay.example.com", // base URL as devices reach it; null = https://<IP from whoami>:<listen.port>
@@ -45,7 +46,7 @@ environment variable `RELAY_<UPPER_SNAKE>`; secrets SHOULD come from the environ
   "tls": "auto",                            // "auto" | "self" | null (plain HTTP behind a TLS proxy) | {"cert","key"}
   "trustProxy": false,                      // true only behind a reverse proxy that sets X-Forwarded-For
   "coord": {
-    "url": "https://pocket.pocketcli.net",  // keys: <url>/.well-known/pocket/keys.json; feed: <url>/v2/relay/revocations;
+    "url": "https://pocket.pocketcli.net",  // default: the edition's (§2.1); keys: <url>/.well-known/pocket/keys.json; feed: <url>/v2/relay/revocations;
                                             // public address: <url>/v2/whoami
     "pinnedKeys": [ { "kid": "c1", "pub": "<b64u 65 B>", "use": ["keys","ticket","revocations","purge"], "nbf": 0, "exp": 0 } ]
   },
@@ -62,8 +63,8 @@ environment variable `RELAY_<UPPER_SNAKE>`; secrets SHOULD come from the environ
 
 `relayId` and `account` come together: both given = bound by the configuration (the official relay; the old self-hosting
 flow); both absent = bound by a claim (§12.1), kept in `dataDir/binding.json`. Startup MUST fail if only one is given,
-or if no coordination key is pinned. The reference relay pins the official coordination key (`c1`) by default, so a
-configuration may leave `coord` out. The pinned keys bootstrap trust; the relay then refreshes `keys.json` (every 6 h
+or if no coordination key is pinned. The reference relay pins the edition's official coordination key (`c1`) by default,
+so a configuration may leave `coord` out. The pinned keys bootstrap trust; the relay then refreshes `keys.json` (every 6 h
 and when it meets an unknown `kid`) and adopts new keys only when signed by a key it already trusts (E2EE §12.1).
 
 `tls`: `"auto"` (default) = the relay's own self-signed certificate (§12.1), except with `trustProxy: true`, where it
@@ -72,6 +73,25 @@ plain HTTP, TLS terminated in front; `{"cert", "key"}` = PEM files, reloaded whe
 MUST be an `https://` URL without query or fragment; a base path is allowed (the official relay has one), but a relay
 added from the App is reached at the root of its host and port (§12.1). Without it a relay that terminates TLS itself
 learns its address from coordination (§12.1).
+
+### 2.1 Editions
+Pocket runs two separate services that share no accounts, keys or servers: the international edition (`intl`,
+coordination `https://pocket.pocketcli.net`) and the mainland China edition (`cn`, `https://api.pocketcli.cn`). A relay
+belongs to one of them: `edition` (`RELAY_EDITION`) sets the defaults of `coord.url` and `coord.pinnedKeys` to that
+edition's coordination server and official key. Left out, it is `cn` when `coord.url` names the mainland China server,
+else `intl`. Startup MUST fail when `coord.url` names the other edition's coordination server or `coord.pinnedKeys`
+holds the other edition's official key. A `cn` relay makes outbound requests only to `https://api.pocketcli.cn`
+(public address, keys, revocations) plus the S3 endpoints its owner configures; it resolves nothing and contacts
+nothing of the international edition.
+
+`GET /v1/info` and `GET /.well-known/pocket-relay` include `"edition"`. A claim (§12.1) that comes from the other
+edition is refused with 403 `wrong-edition`, so a relay installed for the wrong App says so instead of being bound to an
+account whose devices it can never let in (their tickets are signed by the other edition's key). The claim code stays
+valid. The relay tells by, in order: the claim body's optional `edition` (`"intl"`/`"cn"`), its optional `coord`
+(the claiming coordination server's base URL, compared by origin with `coord.url`), else the client address being one of
+the other edition's coordination servers (`EDITIONS[*].coordIps` in the reference relay; built in, never looked up).
+The answer carries `edition` (the relay's) and one sentence each in `zh` and `en` naming the install command of the
+edition the request came from; the relay logs `claim-wrong-edition` and prints the same on standard output.
 
 ## 3. Authentication
 
@@ -217,9 +237,9 @@ JSON responses use `application/json`; errors are `{"error": "<code>", "message"
 HTTP status of §14. Clients translate codes into their own sentences.
 
 ### 6.1 Public
-- `GET /v1/info` → `{ "service": "pocket-relay", "version", "state": "claimed" | "unclaimed", "relayId", "account", "time", "features": ["ws","objects","blobs","presign"], "limits": {"envelope": 1048576, "object": {…}, "blob": 104857600} }`
+- `GET /v1/info` → `{ "service": "pocket-relay", "version", "edition": "intl" | "cn", "state": "claimed" | "unclaimed", "relayId", "account", "time", "features": ["ws","objects","blobs","presign"], "limits": {"envelope": 1048576, "object": {…}, "blob": 104857600} }`
   (`relayId` and `account` are null while unclaimed).
-- `GET /.well-known/pocket-relay` → `{ "v": 1, "state": "claimed", "relayId", "account", "version" }`, or `{ "v": 1, "state": "unclaimed" }`
+- `GET /.well-known/pocket-relay` → `{ "v": 1, "state": "claimed", "relayId", "account", "version", "edition" }`, or `{ "v": 1, "state": "unclaimed", "edition" }`
   before a claim (coordination checks a self-hosted relay with it).
 - `POST /v1/claim` — §12.1.
 - `GET /v1/health` → `{ "ok": true, "version" }`; 503 `unclaimed` before a claim.
@@ -414,12 +434,16 @@ self-hosters decide for themselves.
 ## 12. Self-hosting
 A server with a public IP address; 1 vCPU / 1 GB RAM is enough for one person. No domain is needed.
 
-1. Start the relay without `relayId`/`account` (the reference relay's Docker image needs no configuration at all:
-   `docker run -d --name pocket-relay --restart unless-stopped -p 8443:8443 -v pocket-relay:/var/lib/pocket-relay pocket-relay`).
+1. Start the relay without `relayId`/`account`. The one-command install (§12.2) does it all:
+   `curl -fsSL https://api.pocketcli.cn/dl/selfhost/install.sh | sudo bash` (mainland China edition) or
+   `curl -fsSL https://pocket.pocketcli.net/dl/selfhost/install.sh | sudo bash` (international); the reference relay's
+   Docker image needs no configuration either:
+   `docker run -d --name pocket-relay --restart unless-stopped -p 8443:8443 -v pocket-relay:/var/lib/pocket-relay pocket-relay`
+   (add `-e RELAY_EDITION=cn` for the mainland China edition).
    It makes a self-signed certificate for its public address and prints one line (also in `dataDir/connect.txt`):
    `pocket-relay://203.0.113.7:8443?pin=sha256:<hex>&claim=<code>` — §12.1.
 2. Open that TCP port in the firewall / security group.
-3. In the Pocket app: Settings → Relay → Add your own relay, then paste the line. Coordination registers the relay for the
+3. In the Pocket app: Settings → Server → Add self-hosted server (「我的 → 服务器 → 添加自建服务器」), then paste the line. Coordination registers the relay for the
    account (a new relay id `r_…`), connects to it with TLS pinned to `pin`, and claims it (`POST /v1/claim`). The relay
    then serves that account only.
 4. Switching relays: computers re-upload their sessions to the new relay automatically; phones re-download. The old
@@ -470,16 +494,19 @@ pocket-relay://<host>:<port>[?pin=sha256:<hex>][&claim=<code>]
 - `claim`: 32 random bytes, base64url without padding (43 characters); present only while the relay is unclaimed.
 - `pin` and `claim` appear at most once; clients ignore parameters they do not know (later additions). No user name,
   no fragment.
-- The relay prints the line on standard output with "In the Pocket app: Settings → Relay → Add your own relay, then paste this
-  line" in English and Chinese and a reminder to open the TCP port, and writes it to `dataDir/connect.txt` (0600).
+- The relay prints the line on standard output with its edition and "In the Pocket app: Settings → Server → Add
+  self-hosted server, then paste this line" in English and Chinese and a reminder to open the TCP port, and writes it
+  to `dataDir/connect.txt` (0600). `RELAY_COMMAND` (e.g. `sudo pocket-relay`, set by the one-command install) is how the
+  output names the command that prints the line again.
 
 **Unclaimed state.** No `relayId`/`account` in the configuration and no `dataDir/binding.json`: the relay keeps a claim
 code in `dataDir/claim.json` (0600; reused across restarts until claimed) and answers only `GET /.well-known/pocket-relay`
-(`{"v":1,"state":"unclaimed"}`), `GET /v1/info` and `POST /v1/claim` (§6.1); everything else is 503 `unclaimed`.
+(`{"v":1,"state":"unclaimed","edition":"cn"}`), `GET /v1/info` and `POST /v1/claim` (§6.1); everything else is 503
+`unclaimed`.
 
 **Claim.**
 ```
-POST /v1/claim  { "claim": "<code>", "relayId": "r_…", "account": "<account id>" }
+POST /v1/claim  { "claim": "<code>", "relayId": "r_…", "account": "<account id>", "edition"?: "cn", "coord"?: "<url>" }
 → 200 { "ok": true, "relayId", "account" }
 ```
 - `relayId` matches `^[A-Za-z0-9_:.-]{1,64}$`; `account` is one account id (non-empty, ≤ 128 characters, not `"*"`).
@@ -488,7 +515,8 @@ POST /v1/claim  { "claim": "<code>", "relayId": "r_…", "account": "<account id
   `aud = relayId` and `acct = account` (§3), as on any bound relay. Data that other accounts left in the data directory
   (from before a `reset-claim`) is deleted.
 - Errors (the code also repeated as `code`): 400 `bad-request` (malformed body, `relayId` or `account`; the claim code
-  stays valid), 403 `bad-claim`, 409 `claimed` (already claimed, or bound by its configuration), 413 `too-large`
+  stays valid), 403 `bad-claim`, 403 `wrong-edition` (the right code, from the other edition: §2.1; the code stays
+  valid; checked after the code), 409 `claimed` (already claimed, or bound by its configuration), 413 `too-large`
   (body > 4 KiB), 429 `rate` with `Retry-After` and `retryAfter` (more than 5 attempts per client IP per minute,
   whatever their outcome).
 - A caller whose answer got lost and who then gets 409 checks `/.well-known/pocket-relay`: `relayId` and `account` equal
@@ -503,7 +531,8 @@ verification and without host name checks, computes the SHA-256 of the DER of th
 and compares it with the pin **before sending anything** (no request line, no headers, no ticket); a mismatch closes
 the connection. SNI is sent only for DNS names. Without a `pin`, normal CA and host name verification applies.
 
-**Operator commands.** `node src/main.mjs connect-string` prints the line again (without a claim code once claimed).
+**Operator commands.** `node src/main.mjs connect-string` (after the one-command install: `sudo pocket-relay
+connect-string`) prints the line again (without a claim code once claimed).
 `node src/main.mjs reset-claim` writes a new claim code, then removes `binding.json`; a running relay re-reads both
 every few seconds, closes every socket (4403 `unclaimed`), forgets its tokens and waits for a claim again. A relay bound
 by its configuration refuses `reset-claim`.
@@ -522,6 +551,45 @@ by its configuration refuses `reset-claim`.
 - A changed public address means a new certificate and pin: devices keep the old ones and cannot connect until the
   relay is added again. Operators who expect changes use a static address or a domain in `publicUrl`.
 - The whoami lookup trusts coordination for the address only; a wrong answer makes an unusable line, nothing worse.
+- A claim refused as `wrong-edition` (§2.1) leaves the relay unclaimed with the same code. The address check is only a
+  guard against pasting into the wrong App, not access control: the code is.
+
+### 12.2 One-command install
+`packaging/selfhost/` in the Pocket repository builds an installer for a relay and a speech service (ASR.md §11) on
+one Ubuntu / Debian server with systemd (x86_64 or arm64):
+
+```
+curl -fsSL https://api.pocketcli.cn/dl/selfhost/install.sh | sudo bash          # mainland China edition
+curl -fsSL https://pocket.pocketcli.net/dl/selfhost/install.sh | sudo bash      # international edition
+… | sudo bash -s -- --relay-only | --asr-only | --uninstall [--yes] | --docker <dir>
+```
+
+- The two `install.sh` differ only in a block written at build time: the edition, the download base (the same server's
+  `/dl/selfhost/`), and the two package names `pocket-relay-<12 hex>.tar.gz` / `pocket-asr-<12 hex>.tar.gz` (the first
+  12 hex digits of their SHA-256) with their full SHA-256. The first lines of the script name the edition.
+- Packages = the open-source export (`packaging/oss-export.sh`), tar'd reproducibly (fixed times, sorted, `gzip -n`).
+  The script refuses any package whose SHA-256 differs. Node.js 22 (when no Node.js ≥ 22.13 usable by a system user
+  exists) comes from npmmirror (`cn`) or nodejs.org (`intl`), checked against SHA-256 values in the script, into
+  `/opt/pocket-selfhost/node`. The `cn` script downloads nothing from outside mainland China; the `cn` services then
+  talk only to `api.pocketcli.cn` (§2.1; ASR.md §11.5).
+- Layout: code `/opt/pocket-relay`, `/opt/pocket-asr` (with `.pocket-selfhost` = edition, version, SHA-256); data
+  `/var/lib/pocket-relay`, `/var/lib/pocket-asr` (0700, owned by system users of the same names); optional settings
+  `/etc/pocket-{relay,asr}/env` (`EnvironmentFile`); units `pocket-relay.service` / `pocket-asr.service` with
+  `RELAY_EDITION` / `ASR_EDITION`, a read-only system except the data directory; commands `/usr/local/bin/pocket-relay`
+  and `pocket-asr` run `main.mjs` as the service user with the same settings.
+- Running it again upgrades: the new code is checked against the current settings before the old one is stopped, and
+  put back if the new one does not start. Certificates, claim, tokens and models are kept, so the lines do not change.
+  An install made by hand (same paths and service names) is taken over: settings in its unit move to the env file, a
+  data directory elsewhere is copied, its code directory is kept as `<dir>.bak-<time>`. A claimed relay of the other
+  edition is not converted (the script says how to keep it or reinstall).
+- The speech service's first token is made with `new-token` before the service first starts, so it appears in the
+  installer's output once and never in the journal. On machines running the official services (`/etc/pocket/relay.json`)
+  the script refuses to run.
+- `--docker <dir>` installs nothing: it verifies the packages and writes them with `docker-compose.yml` and `.env`
+  (`POCKET_EDITION`, and for `cn` an apt mirror for the speech image) into `<dir>`.
+- The coordination server serves `/dl/selfhost/install.sh` (text/plain) and the two packages (application/gzip) as
+  regular files under its download quotas, never redirected to object storage. `packaging/selfhost/build.sh --push`
+  uploads the packages first and replaces `install.sh` last.
 
 ## 13. Official relay
 `relayId` = `hk1`, base URL `https://pocket.pocketcli.net/relay` (WebSocket `wss://pocket.pocketcli.net/relay/v1/ws`),
@@ -535,7 +603,7 @@ over loopback.
 |---|---|
 | 400 | `bad-request`, `mismatch`, `bad-blob` |
 | 401 | `token`, `bad-ticket`, `expired`, `bad-proof`, `bad-nonce`, `bad-sig`, `stale`, `unknown-key`, `key-not-valid`, `wrong-aud` |
-| 403 | `denied`, `revoked`, `wrong-account`, `bad-claim` |
+| 403 | `denied`, `revoked`, `wrong-account`, `bad-claim`, `wrong-edition` (§2.1) |
 | 404 | `not-found` |
 | 409 | `ver`, `exists`, `size`, `claimed` |
 | 413 | `too-large` |
@@ -579,3 +647,7 @@ Errors of the claim flow (§12.1: `POST /v1/claim`, and `unclaimed` answers) rep
   path, certificate files (pinned unless from a public CA), the official configuration unchanged (no lookup, no files,
   plain HTTP, every account), the relay as a process with an environment-only configuration (`--health`,
   `connect-string`, claim, `reset-claim`, SIGTERM).
+- Editions (§2.1): `intl` by default, `cn` picks the mainland coordination server and only its key, contradictory
+  settings refused; a `cn` relay (in process and as a process with `fetch` recorded) requests nothing but
+  `https://api.pocketcli.cn`; claims from the other edition (by address, `edition` or `coord`) get 403 `wrong-edition`
+  with the code still valid, claims from its own edition bind.

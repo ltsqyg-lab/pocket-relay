@@ -394,7 +394,7 @@ after 90 s; token revocation closes with 4401.
     "config": { "relayId", "account", "coord": { "url", "pinnedKeys" } } }` — everything the operator pastes into the
     relay's config; nothing secret. Then `POST /v2/relays/{id}/verify`.
   - **With `claim`**: coordination derives `relayId` = `r_` + 10 characters from (account, claim code) and sends
-    `POST <url>/v1/claim { "claim", "relayId", "account" }` through the client below (with `pin`: pinned TLS).
+    `POST <url>/v1/claim { "claim", "relayId", "account", "edition" }`(`edition` = 这台协调是 `cn` 还是 `intl`,2026-10-10) through the client below (with `pin`: pinned TLS).
     The relay answers `200 { "ok": true, "relayId", "account" }` (the same values) → the relay is stored as
     `{ id, url, name, pin, state: "verified" }`, the netmap changes, and the answer is
     `{ "relayId", "account", "state": "verified", "pin": "sha256:…" | null }`. Because the same code gives the same
@@ -404,6 +404,7 @@ after 90 s; token revocation closes with 4401.
     | Answer | When |
     |---|---|
     | `409 relay-pin-mismatch` | the relay's leaf certificate does not hash to `pin` (the request — and the claim code — was never sent) |
+    | `409 relay-wrong-edition` | the relay answered 403 `wrong-edition`: it was installed for the other edition (RELAY.md §2.1). The message carries this coordination server's install command. |
     | `409 relay-claim-rejected` | the relay answered 403 (wrong code), or 409 (already claimed) while its `/.well-known/pocket-relay` shows another `relayId` / account, or a 200 that does not echo this `relayId` and account |
     | `502 relay-unreachable` | no connection or no answer within 5 s ("Couldn't reach `<host>:<port>`: check that the server's firewall / security group allows this port"); unknown host; resolves to a non-public address; certificate not valid (no `pin`); a redirect, more than 4 KiB, or another status (e.g. 404 — not a Pocket relay, or too old) |
     | `400 relay-url` | the address rules above |
@@ -557,5 +558,5 @@ notifications) keep working. A computer already on v2 that an old version tries 
 `bad-request`, `bad-key`, `bad-name`, `bad-proof`, `stale`, `not-bound`, `revoked`, `suspended`, `no-lock`,
 `genesis-not-allowed`, `head`, `bad-pair`, `pair-required`, `pair-limit`
 (+ `head`), any E2EE validation code (`bad-sig`, `not-admin`, …), `not-found`, `not-admin`, `relay-unverified`,
-`relay-unreachable`, `relay-url`, `relay-pin-mismatch`, `relay-claim-rejected`, `rate`, `reset-window`, `password`, `code`,
+`relay-unreachable`, `relay-url`, `relay-pin-mismatch`, `relay-claim-rejected`, `relay-wrong-edition`, `rate`, `reset-window`, `password`, `code`,
 `not-allowed` (the demo account, §15), `device-limit` (the demo account's lock is full, §15).

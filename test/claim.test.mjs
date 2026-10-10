@@ -62,12 +62,12 @@ test('unclaimed: self-signed certificate for the address coordination reports, t
   assert.equal(c.claim, JSON.parse(fs.readFileSync(F.claim, 'utf8')).claim)
   assert.equal(line, `pocket-relay://127.0.0.1:${r.port}?pin=${r.pin}&claim=${c.claim}`)
   const out = r.printed.join('')
-  for (const want of [line, 'In the Pocket app: Settings → Relay → Add your own relay, then paste this line', '在 Pocket App:我的 → 中继 → 添加自建中继,粘贴这一行',
+  for (const want of [line, 'In the Pocket app: Settings → Server → Add self-hosted server, then paste this line', '在 Pocket App:我的 → 服务器 → 添加自建服务器,粘贴这一行', '这台服务器是国际版',
     `TCP port ${r.port}`, `TCP ${r.port} 端口`, 'connect-string']) assert.ok(out.includes(want), `output has ${want}`)
   // what answers
   let x = await P(r, '/.well-known/pocket-relay')
   assert.equal(x.status, 200)
-  assert.deepEqual(x.json(), { v: 1, state: 'unclaimed' })
+  assert.deepEqual(x.json(), { v: 1, state: 'unclaimed', edition: 'intl' })
   x = await P(r, '/v1/info')
   assert.equal(x.status, 200)
   assert.equal(x.json().state, 'unclaimed')
@@ -184,7 +184,7 @@ test('reset-claim in another process: the running relay drops its sockets, takes
   assert.ok(fresh.claim && fresh.claim !== first)
   assert.equal(fresh.pin, r.pin, 'same certificate')
   assert.equal(await M.ws.closed, 4403, 'the running relay closed the socket')
-  assert.deepEqual((await P(r, '/.well-known/pocket-relay')).json(), { v: 1, state: 'unclaimed' })
+  assert.deepEqual((await P(r, '/.well-known/pocket-relay')).json(), { v: 1, state: 'unclaimed', edition: 'intl' })
   assert.equal((await post(r, '/v1/auth/challenge', {})).status, 503)
   await until(() => r.printed.join('').includes(fresh.claim), 3000, 'the relay to print the new line')
   assert.equal(lineOf(r), `pocket-relay://127.0.0.1:${r.port}?pin=${r.pin}&claim=${fresh.claim}`)
@@ -217,7 +217,7 @@ test('the official relay configuration is unchanged: hk1, every account, plain H
   assert.deepEqual(r.printed, [], 'nothing printed')
   for (const f of ['tls', 'claim.json', 'binding.json', 'public.json', 'connect.txt']) assert.equal(fs.existsSync(path.join(r.dir, f)), false, f)
   assert.equal((await tfetch(`${r.base}/v1/health`)).status, 200)
-  assert.deepEqual(await (await tfetch(`${r.base}/.well-known/pocket-relay`)).json(), { v: 1, state: 'claimed', relayId: 'hk1', account: '*', version: (await (await tfetch(`${r.base}/v1/info`)).json()).version })
+  assert.deepEqual(await (await tfetch(`${r.base}/.well-known/pocket-relay`)).json(), { v: 1, state: 'claimed', relayId: 'hk1', account: '*', version: (await (await tfetch(`${r.base}/v1/info`)).json()).version, edition: 'intl' })
   const cl = await tfetch(`${r.base}/v1/claim`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ claim: 'x'.repeat(43), relayId: 'r_x', account: 'u_x' }) })
   assert.equal(cl.status, 409)
   // any account, client IP from X-Forwarded-For

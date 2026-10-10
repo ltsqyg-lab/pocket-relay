@@ -23,6 +23,7 @@ import {
   configuredAddress, readPublic, writePublic, whoami, nonPublicIp, connectInfo, connectBlock, noLineText, writeFileAtomic, publiclyTrusted,
 } from './claim.mjs'
 import { RelayError, fail, statusOf, verifyRelayAuth, verifyCoordDoc, b64u, sha256hex, isInt, checkAddr, SKEW_MS, unb64u, blobSizeFor } from './proto.mjs'
+import { EDITIONS, EDITION_NAMES, editionOfUrl } from './config.mjs'
 
 export const VERSION = '0.2.1'
 // what the public endpoints say: major.minor only, so the exact build is not advertised (clients go by `features`)
@@ -327,7 +328,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     try { const j = JSON.parse(b.toString('utf8')); if (!j || typeof j !== 'object' || Array.isArray(j)) throw 0; return j } catch { fail('bad-request', 'JSON body') }
   }
   const info = () => ({
-    service: 'pocket-relay', version: PUBLIC_VERSION, state: bound() ? 'claimed' : 'unclaimed', relayId: cfg.relayId, account: cfg.account, time: now(),
+    service: 'pocket-relay', version: PUBLIC_VERSION, edition: cfg.edition, state: bound() ? 'claimed' : 'unclaimed', relayId: cfg.relayId, account: cfg.account, time: now(),
     features: ['ws', 'objects', 'blobs', ...(blobs.presign ? ['presign'] : [])],
     limits: { envelope: cfg.limits.envelope, object: { ...cfg.limits.objects }, blob: cfg.limits.blob },
   })
@@ -353,7 +354,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     if (m === 'GET' && url.pathname === '/v1/info') { ctx.quiet = true; return sendJson(res, 200, info()) }
     if (m === 'GET' && url.pathname === '/.well-known/pocket-relay') {
       ctx.quiet = true
-      return sendJson(res, 200, bound() ? { v: 1, state: 'claimed', relayId: cfg.relayId, account: cfg.account, version: PUBLIC_VERSION } : { v: 1, state: 'unclaimed' })
+      return sendJson(res, 200, bound() ? { v: 1, state: 'claimed', relayId: cfg.relayId, account: cfg.account, version: PUBLIC_VERSION, edition: cfg.edition } : { v: 1, state: 'unclaimed', edition: cfg.edition })
     }
     if (m === 'POST' && url.pathname === '/v1/claim') return claimRoute(req, res, ctx)
     if (!bound()) claimFail('unclaimed')
@@ -434,11 +435,58 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
     if (!validAccount(j.account)) claimFail('bad-request', 'account (one account id, at most 128 characters)')
     if (bound()) claimFail('claimed')                    // another claim won while this body was read
     if (!claimMatches(j.claim, readClaim(cfg.dataDir))) claimFail('bad-claim')
+    // the right code from the other edition's coordination: the owner pasted the line into the other App (RELAY.md §2.1)
+    const from = claimEdition(j, ctx.ip)
+    if (from) {
+      const me = EDITIONS[cfg.edition], them = EDITIONS[from.edition]
+      logger.warn('claim-wrong-edition', { edition: cfg.edition, from: from.edition, by: from.by, ip: ctx.ip })
+      print(wrongEditionText(from))
+      claimFail('wrong-edition', null, them ? {
+        edition: cfg.edition,
+        zh: `这台服务器装的是${me.zh},只能添加到${me.zh} Pocket App;刚才的请求来自${them.zh}。请改用${them.zh}的安装命令重新安装:${them.install}`,
+        en: `This server runs the ${me.en} of Pocket and can be added only in that app; the request came from the ${them.en}. Reinstall it with: ${them.install}`,
+      } : {
+        edition: cfg.edition,
+        zh: `这台服务器只服务 ${cfg.coord.url},刚才的请求来自其他协调服务器。`,
+        en: `This server serves only ${cfg.coord.url}; the request came from another coordination server.`,
+      })
+    }
     bindTo({ relayId: j.relayId, account: j.account })
     ctx.acct = j.account
     sendJson(res, 200, { ok: true, relayId: j.relayId, account: j.account })
     announce({ claimed: true })
     purgeOtherAccounts(j.account)
+  }
+
+  /**
+   * Which other edition this claim comes from, or null (RELAY.md §2.1): a claim body naming its edition or its
+   * coordination server says so; without either, a claim from an address of another edition's coordination server.
+   * Nothing is looked up: the addresses are in EDITIONS, so a mainland China relay never asks about the other one.
+   */
+  function claimEdition(j, ip) {
+    if (typeof j.edition === 'string' && j.edition && j.edition !== cfg.edition) return { edition: EDITIONS[j.edition] ? j.edition : 'other', by: 'edition' }
+    if (typeof j.coord === 'string' && j.coord) {
+      const e = editionOfUrl(j.coord)
+      let same = false
+      try { same = !!cfg.coord.url && new URL(j.coord).origin === new URL(cfg.coord.url).origin } catch { /* not a URL */ }
+      if (!same && e !== cfg.edition) return { edition: e ?? 'other', by: 'coord' }
+    }
+    const a = String(ip || '').replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, '')
+    for (const e of EDITION_NAMES) if (e !== cfg.edition && EDITIONS[e].coordIps.includes(a)) return { edition: e, by: 'address' }
+    return null
+  }
+  function wrongEditionText(from) {
+    const me = EDITIONS[cfg.edition], them = EDITIONS[from.edition]
+    const bar = '='.repeat(78)
+    if (!them) {
+      return [bar, `Pocket relay: refused a claim from another coordination server (this relay serves ${cfg.coord.url}). The claim code still works.`,
+        `已拒绝来自其他协调服务器的认领请求(这台服务器只服务 ${cfg.coord.url}),认领码仍然有效。`, bar, ''].join('\n')
+    }
+    return [bar,
+      `Pocket relay: this server runs the ${me.en}; the app that tried to add it is the ${them.en}. Refused (the claim code still works).`,
+      `To use it with that app, reinstall with: ${them.install}`,
+      `这台服务器装的是${me.zh},刚才在${them.zh} App 里添加,已拒绝(认领码仍然有效)。`,
+      `要给${them.zh} App 用,请改用${them.zh}的安装命令重新安装:${them.install}`, bar, ''].join('\n')
   }
 
   /** Bind to a relay id and an account: binding.json first, then the claim code goes, then this process serves. */
@@ -740,7 +788,7 @@ export async function createRelay(cfg, { now = Date.now, log = null, fetchImpl =
         logger.warn('tls-pinned-ca-certificate', { host: inf.host, note: 'tls.cert is from a public CA but devices pin it here (an IP address, or a name it does not cover), and the pin breaks at the next renewal. Put a domain name it covers in publicUrl, or use the self-signed certificate' })
       }
     } catch { /* only a hint */ }
-    print(connectBlock(inf, { file: F.connect, claimed }))
+    print(connectBlock(inf, { file: F.connect, claimed, edition: cfg.edition, command: env.RELAY_COMMAND || null }))
   }
 
   function announceStartup() {

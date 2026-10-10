@@ -1,6 +1,6 @@
 {
   // Most relays need no configuration file: start it, and paste the line it prints into the Pocket App
-  // (Settings → Relay → Add your own relay). This file lists the settings with their defaults; keep only what you change.
+  // (Settings → Server → Add self-hosted server). This file lists the settings with their defaults; keep only what you change.
   // Every value can also come from an environment variable: publicUrl → RELAY_PUBLIC_URL, listen.port → RELAY_LISTEN_PORT…
   // Nothing here is secret. S3 keys (if any) come from the environment variables named below.
 
@@ -20,8 +20,11 @@
   "tls": "auto",
   "trustProxy": false,
 
-  // The official coordination server. Its public key is built in (coord.pinnedKeys); change these only for a lab.
-  "coord": { "url": "https://pocket.pocketcli.net" },
+  // Which Pocket service this relay belongs to: "intl" (pocket.pocketcli.net, the default) or "cn" (api.pocketcli.cn,
+  // mainland China; talks to nothing outside mainland China). The app of one edition adds only relays of that edition.
+  // The edition sets the coordination server and its built-in public key (coord.url, coord.pinnedKeys): leave those
+  // out, change them only for a lab.
+  "edition": "intl",
 
   "dataDir": "/var/lib/pocket-relay",
 

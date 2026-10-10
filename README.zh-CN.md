@@ -4,48 +4,98 @@
 
 [Pocket](https://pocket.pocketcli.net) 的中继。Pocket 是用手机遥控电脑上 AI 编程工具(Claude Code、Codex 等)的 App。中继替你的设备转发、保存端到端加密的数据,自己看不到内容。官方中继跑的就是这份代码,你也可以自己跑一个。
 
-## 不用域名部署(推荐)
+## 一条命令部署(推荐)
 
-要一台有公网 IP 的服务器和 Docker,一个人用 1 核 1G 就够。和 Tailscale 的 DERP 中继一样,不需要域名,也不需要买证书:中继自己生成证书,App 钉住它。
+要一台有公网 IP 的 Ubuntu 或 Debian 服务器(x86_64 或 arm64,systemd),一个人用 1 核 1G 就够。不需要域名,也不需要买证书。这条命令同时装好中继和[语音服务](https://github.com/pocketcli-app/pocket-asr):
 
 ```sh
-git clone https://github.com/ltsqyg-lab/pocket-relay && cd pocket-relay
-docker build -t pocket-relay .
+# 国内版(用国内版 Pocket App 的,一般选这个)
+curl -fsSL https://api.pocketcli.cn/dl/selfhost/install.sh | sudo bash
+
+# 国际版
+curl -fsSL https://pocket.pocketcli.net/dl/selfhost/install.sh | sudo bash
+```
+
+装完会打印两行连接串:
+
+```
+ 中继:在 Pocket App「我的 → 服务器 → 添加自建服务器」粘贴这一行
+   pocket-relay://203.0.113.7:8443?pin=sha256:3f1c…&claim=Qm9x…
+
+ 语音服务:在 Pocket App「我的 → 语音识别方式 → 自建语音服务」粘贴这一行
+   pocket-asr://203.0.113.7:8444?pin=sha256:068a…&token=eJLA…
+```
+
+1. 在云服务器控制台的防火墙 / 安全组里放行 TCP 8443 和 8444(机器上开着 ufw 时脚本已经放行)。
+2. 按上面说的位置把两行分别粘贴到 App 里。语音服务那一行带着访问密钥,只显示这一次。
+
+| 选项(写在 `bash -s --` 后面) | 作用 |
+|---|---|
+| `--relay-only` / `--asr-only` | 只装、升级或卸载其中一个 |
+| `--uninstall` | 停止服务,删除程序、数据、设置和系统用户(会先问;加 `--yes` 不问) |
+| `--docker <目录>` | 不装服务,只把核对过的程序和 `docker-compose.yml` 放进这个目录(见下面的 Docker) |
+
+例如只装中继:`curl -fsSL https://api.pocketcli.cn/dl/selfhost/install.sh | sudo bash -s -- --relay-only`。
+
+**升级**:重新运行同一条命令。证书、认领状态、访问密钥和语音模型都保留,连接串不变。之前照下面的办法手动装过的(程序在 `/opt/pocket-relay`、服务名 `pocket-relay`、数据在 `/var/lib/pocket-relay`),脚本会接管,数据不丢,原来的程序目录挪到 `/opt/pocket-relay.bak-<时间>`。
+
+**脚本做了什么**:检查系统;没有 Node.js 22.13 以上时,从 npmmirror(国内版)或 nodejs.org(国际版)下载 Node.js 22 放进 `/opt/pocket-selfhost/node`,核对 SHA-256,不影响系统里原有的 Node.js;从同一台服务器的 `/dl/selfhost/` 下载中继和语音服务的程序包(内容与开源仓库相同),按写在脚本里的 SHA-256 核对;建系统用户 `pocket-relay`、`pocket-asr`,程序装到 `/opt/pocket-relay`、`/opt/pocket-asr`,数据放 `/var/lib/pocket-relay`、`/var/lib/pocket-asr`,写 systemd 服务并启动。之后可以用 `sudo pocket-relay connect-string` 再看一遍连接串,`sudo pocket-asr new-token` 生成新的语音服务连接串。自己的设置(比如 `RELAY_PUBLIC_URL`)写在 `/etc/pocket-relay/env`,改完 `systemctl restart pocket-relay`。
+
+### 国内版和国际版
+
+Pocket 分国内版(`api.pocketcli.cn`)和国际版(`pocket.pocketcli.net`)两套服务,账号、钥匙和服务器都不互通。中继也分两版,用哪个版本的 App 就装哪个版本:
+
+- **国内版**(`RELAY_EDITION=cn`):查公网 IP、取协调公钥、拉撤销名单都只连 `https://api.pocketcli.cn`,只认国内版的协调公钥,不连任何境外地址。安装脚本、Node.js 和程序包也都从国内下载。
+- **国际版**(`RELAY_EDITION=intl`,默认):连 `https://pocket.pocketcli.net`。
+
+装错了也不要紧:在另一版 App 里添加时,中继会拒绝,并在日志里说明该用哪条安装命令重装;认领码仍然有效。
+
+### 粘贴之前
+
+**粘贴之前别把中继那一行给别人。** 认领码谁先用谁就拿到这个中继。它只能用一次,只出现在中继的输出和数据目录里,同一个地址每分钟最多试 5 次。泄露了就运行 `sudo pocket-relay reset-claim` 换一个(见[运维](#运维))。
+
+App 用 `pin` 核对中继的证书,凭一次性的认领码 `claim` 把中继认领到你的账号下,从此它只服务你一个人。在 App 里切换到这个中继后,电脑把会话上传到它,手机从它读取。
+
+中继问协调服务器自己的公网 IP 是多少(`GET <协调服务器>/v2/whoami`),给这个地址生成一张自签证书(ECDSA P-256,有效 10 年)。`pin` 是这张证书的 SHA-256,设备只认这一张,所以证书机构也冒充不了你的中继。重启、升级之后这一行不变。探测到的地址不对时(服务器出网走的是另一个 IP,或者对外映射了别的端口),在 `/etc/pocket-relay/env` 里写一行 `RELAY_PUBLIC_URL=https://203.0.113.7:8443`,然后 `systemctl restart pocket-relay`。
+
+## 其他部署方式
+
+### Docker
+
+用安装脚本准备文件(程序按 SHA-256 核对过),再用 Docker Compose 一起起中继和语音服务:
+
+```sh
+curl -fsSL https://api.pocketcli.cn/dl/selfhost/install.sh | sudo bash -s -- --docker /opt/pocket-docker   # 国际版换成 pocket.pocketcli.net
+cd /opt/pocket-docker && docker compose up -d --build
+docker compose logs          # 两行连接串在日志里
+```
+
+目录里的 `.env` 写着版本(`POCKET_EDITION=cn` 或 `intl`)。国内拉 Docker Hub 的基础镜像(`node:22-alpine`、`node:22-bookworm-slim`)很慢甚至拉不下来,要先给 Docker 配好镜像加速器;国内版的 `.env` 还让语音服务镜像构建时的 apt 走 `mirrors.aliyun.com`。没有加速器就用上面的一条命令部署(不需要 Docker)。
+
+只要中继、能访问 GitHub 时也可以直接构建:
+
+```sh
+git clone https://github.com/pocketcli-app/pocket-relay && cd pocket-relay
+docker build -t pocket-relay .                                     # 国内版:--build-arg RELAY_EDITION=cn
 docker run -d --name pocket-relay --restart unless-stopped -p 8443:8443 -v pocket-relay:/var/lib/pocket-relay pocket-relay
 docker logs pocket-relay
 ```
 
-日志里有这样一行:
+对外映射了别的端口时(`-p 443:8443`)加 `-e RELAY_PUBLIC_URL=https://203.0.113.7:443`。
 
-```
-pocket-relay://203.0.113.7:8443?pin=sha256:3f1c…&claim=Qm9x…
-```
+### 不用 Docker、不用脚本
 
-1. 在服务器防火墙和云服务器的安全组里放行 TCP 8443 端口。
-2. 在 Pocket App 里打开 **我的 → 中继 → 添加自建中继**,粘贴这一行。Pocket 用 `pin` 核对中继的证书,凭一次性的认领码 `claim` 把中继认领到你的账号下。从此它只服务你一个人。
-3. 在 App 里切换到这个中继。电脑会把会话上传到它,手机从它读取。
-
-**粘贴之前别把这一行给别人。** 认领码谁先用谁就拿到这个中继。它只能用一次,只出现在中继的输出和数据目录里,同一个地址每分钟最多试 5 次。泄露了就用 `reset-claim` 换一个(见[运维](#运维))。
-
-中继问协调服务器自己的公网 IP 是多少(`GET https://pocket.pocketcli.net/v2/whoami`),给这个地址生成一张自签证书(ECDSA P-256,有效 10 年)。`pin` 是这张证书的 SHA-256,设备只认这一张,所以证书机构也冒充不了你的中继。所有东西都在 `pocket-relay` 卷里,重启、升级之后这一行不变。
-
-**探测到的地址不对时**(服务器出网走的是另一个 IP,或者对外映射了别的端口,比如 `-p 443:8443`),自己指定:
+Node.js 22.13 以上,不需要 npm 包:
 
 ```sh
-docker run -d --name pocket-relay --restart unless-stopped -p 443:8443 -v pocket-relay:/var/lib/pocket-relay \
-  -e RELAY_PUBLIC_URL=https://203.0.113.7:443 pocket-relay
-```
-
-**不用 Docker**(Node.js 22.13 以上,不需要 npm 包):
-
-```sh
-RELAY_DATA_DIR=$HOME/pocket-relay node src/main.mjs                       # 端口 8443
+RELAY_DATA_DIR=$HOME/pocket-relay node src/main.mjs                       # 国际版,端口 8443
+RELAY_EDITION=cn RELAY_DATA_DIR=$HOME/pocket-relay node src/main.mjs      # 国内版
 RELAY_DATA_DIR=$HOME/pocket-relay RELAY_LISTEN_PORT=9443 node src/main.mjs
 ```
 
 只有 IPv6 的服务器再加 `RELAY_LISTEN_HOST=::`。
 
-## 有域名时
+### 有域名时
 
 **放在反向代理后面**(nginx、Caddy 等,已经有这个域名的证书):HTTPS 在代理上终结,`/v1/ws` 的 WebSocket 升级要转过来,客户端地址追加到 `X-Forwarded-For`,中继在本机回环上跑明文 HTTP。
 
@@ -93,9 +143,10 @@ location / {
 | `listen.host`、`listen.port` | `0.0.0.0`、`8443` | 监听的地址和端口。 |
 | `tls` | `"auto"` | `"auto"`:自己的自签证书(`trustProxy` 为 true 时改为明文 HTTP)。`"self"`:总用自签证书。`null`:明文 HTTP,TLS 由前面的代理终结。`{"cert", "key"}`:PEM 文件。 |
 | `trustProxy` | `false` | 客户端 IP 取 `X-Forwarded-For` 的最后一项。只在你自己的代理后面打开。 |
+| `edition` | `intl` | `cn`:国内版,`intl`:国际版(见[国内版和国际版](#国内版和国际版))。决定下面两项的默认值。环境变量 `RELAY_EDITION`。 |
 | `relayId`、`account` | `null` | 两个都不写:在 App 里认领。两个都写:手动绑定(官方中继是 `hk1`、`"*"`)。 |
-| `coord.url` | `https://pocket.pocketcli.net` | 查公网地址、取协调公钥、拉撤销名单。 |
-| `coord.pinnedKeys` | 官方公钥 | 一开始信任的协调公钥:`[{kid, pub, use, nbf, exp}]`。由它们签过的新公钥会自动采用。 |
+| `coord.url` | 按版本:`https://api.pocketcli.cn` / `https://pocket.pocketcli.net` | 查公网地址、取协调公钥、拉撤销名单。和 `edition` 不一致时启动报错。 |
+| `coord.pinnedKeys` | 按版本:该版的官方公钥 | 一开始信任的协调公钥:`[{kid, pub, use, nbf, exp}]`。由它们签过的新公钥会自动采用。写成另一版的公钥时启动报错。 |
 | `coord.pollSeconds` | `60` | 有在线连接的账号多久拉一次撤销名单。 |
 | `dataDir` | `/var/lib/pocket-relay` | 证书、认领关系、索引数据库、对象、附件。 |
 | `blobs` | `{"store": "disk"}` | 附件放硬盘,或 `{"store": "s3", "backends": [...]}`(见下)。 |
@@ -123,11 +174,11 @@ location / {
 
 ## 运维
 
-- **再打印一遍那一行**:`docker exec pocket-relay node src/main.mjs connect-string`(不用 Docker 就在同样的环境变量下跑 `node src/main.mjs connect-string`)。数据目录里的 `connect.txt` 也是这一行。认领之后这一行不带认领码。
-- **重新认领**(在 App 里删掉了这个中继,或者要给另一个账号用):`docker exec pocket-relay node src/main.mjs reset-claim`,打印带新认领码的一行。正在跑的中继几秒内断开所有连接,等着被认领。被另一个账号认领时,上一个账号存的东西会删掉。
+- **再打印一遍那一行**:`sudo pocket-relay connect-string`(一条命令部署的);Docker:`docker exec pocket-relay node src/main.mjs connect-string`;自己跑的,在同样的环境变量下跑 `node src/main.mjs connect-string`。数据目录里的 `connect.txt` 也是这一行。认领之后这一行不带认领码。
+- **重新认领**(在 App 里删掉了这个中继,或者要给另一个账号用):`sudo pocket-relay reset-claim`(Docker:`docker exec pocket-relay node src/main.mjs reset-claim`),打印带新认领码的一行。正在跑的中继几秒内断开所有连接,等着被认领。被另一个账号认领时,上一个账号存的东西会删掉。
 - **公网 IP 变了**:中继生成新证书,`pin` 也跟着变。跑 `reset-claim`,在 App 里重新添加。用固定 IP(云服务器的弹性公网 IP),或者在 `publicUrl` 里用域名,就不会这样。故意要换证书:删掉数据目录里的 `tls/`,重启,再跑 `reset-claim`。
-- **升级**:`git pull && docker build -t pocket-relay . && docker rm -f pocket-relay`,再跑同样的 `docker run`。证书、认领关系和数据都在卷里,不受影响。
-- **日志**输出到标准输出:时间、中继编号、账号、设备地址、操作、大小、状态、耗时、客户端 IP。不记消息内容、票据、令牌、挑战、认领码、预签名地址、`Authorization` 头。
+- **升级**:一条命令部署的,重新运行安装命令;Docker,换上新程序后 `docker compose up -d --build`(或 `git pull && docker build …` 再 `docker run`)。证书、认领关系和数据都保留。
+- **日志**输出到标准输出(`journalctl -u pocket-relay`、`docker logs pocket-relay`):时间、中继编号、账号、设备地址、操作、大小、状态、耗时、客户端 IP。不记消息内容、票据、令牌、挑战、认领码、预签名地址、`Authorization` 头。
 - **健康检查**:`node src/main.mjs --health`(容器的健康检查)问的是 `/v1/info`;`GET /v1/health` 认领之后回 200(之前回 503 `unclaimed`)。`GET /v1/metrics`(只限本机回环):连接、队列、对象、附件的数量。
 - **数据**是密文缓存,丢了电脑会重新上传。只有证书(`tls/`)和认领关系(`binding.json`)补不回来,丢了就要在 App 里重新添加。删除立即生效(没有回收站)。硬盘占用受保留期、每个账号的 `quota.storeMB` 和 `disk.minFreeMB` 限制:硬盘剩得太少时日志里出现 `disk-low`,中继先不收新数据,腾出空间后自己恢复。
 - **重启**会忘掉内存里的会话令牌,设备会自己重新登录中继。

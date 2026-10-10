@@ -241,13 +241,16 @@ export function connectInfo({ cfg, port = null, now = Date.now() }) {
 }
 
 /** The text printed to standard output: the line, where to paste it, which port to open. */
-export function connectBlock(info, { file = null, claimed = false } = {}) {
+export function connectBlock(info, { file = null, claimed = false, edition = null, command = null } = {}) {
   const bar = '='.repeat(78)
   const out = [bar]
+  // which App can add it (RELAY.md §2.1): the edition's name, in both languages
+  const ed = { cn: ['mainland China edition', '国内版'], intl: ['international edition', '国际版'] }[edition]
+  if (ed) out.push(`Pocket relay, ${ed[0]} (for the ${ed[0]} of the app). 这台服务器是${ed[1]},只能添加到${ed[1]} App。`)
   if (!info.bound) {
     out.push('Pocket relay: ready to be added (not claimed yet).',
-      'In the Pocket app: Settings → Relay → Add your own relay, then paste this line:',
-      '在 Pocket App:我的 → 中继 → 添加自建中继,粘贴这一行:')
+      'In the Pocket app: Settings → Server → Add self-hosted server, then paste this line:',
+      '在 Pocket App:我的 → 服务器 → 添加自建服务器,粘贴这一行:')
   } else {
     out.push(claimed ? `Pocket relay: claimed (relay ${info.bound.relayId}). 已认领。` : `Pocket relay: relay ${info.bound.relayId}.`,
       'Connection line (no claim code: this relay is already claimed):', '连接串(已认领,不带认领码):')
@@ -256,7 +259,8 @@ export function connectBlock(info, { file = null, claimed = false } = {}) {
   if (info.publicCa) out.push(`Certificate from a public CA: devices check it like a website, no pin needed (its pin is ${info.pin}).`)
   out.push(`Open TCP port ${info.port} to the internet in this server's firewall / cloud security group.`,
     `在服务器防火墙 / 云服务器安全组里放行 TCP ${info.port} 端口。`)
-  if (file) out.push(`Also in ${file}. Print it again: node src/main.mjs connect-string (Docker: docker exec <container> node src/main.mjs connect-string)`)
+  // command: how this relay's commands are run here (RELAY_COMMAND, e.g. "sudo pocket-relay" from the one-command install)
+  if (file) out.push(command ? `Also in ${file}. Print it again: ${command} connect-string` : `Also in ${file}. Print it again: node src/main.mjs connect-string (Docker: docker exec <container> node src/main.mjs connect-string)`)
   out.push(bar, '')
   return out.join('\n')
 }

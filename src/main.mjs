@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Pocket relay entry point.
-//   node src/main.mjs [--config relay.json]   start (or RELAY_CONFIG=…; every value can also come from RELAY_* variables)
+//   node src/main.mjs [--config relay.json]   start (or RELAY_CONFIG=…; every value can also come from RELAY_* variables;
+//                                             RELAY_EDITION=cn for the mainland China edition, RELAY.md §2.1;
+//                                             RELAY_COMMAND = how to run these commands here, shown in the output)
 //   node src/main.mjs connect-string          print the line to paste into the Pocket App again (RELAY.md §12.1)
 //   node src/main.mjs reset-claim             unbind this relay and make a new claim code (a running relay notices)
 //   node src/main.mjs --health                liveness probe for containers: asks this relay's /v1/info on loopback
@@ -49,7 +51,7 @@ function health() {
 function connectString() {
   const info = connectInfo({ cfg })
   if (!info.line) { process.stderr.write(noLineText(info.why, { cfg })); process.exit(1) }
-  process.stdout.write(connectBlock(info, { file: claimFiles(cfg.dataDir).connect }))
+  process.stdout.write(connectBlock(info, { file: claimFiles(cfg.dataDir).connect, edition: cfg.edition, command: process.env.RELAY_COMMAND || null }))
 }
 
 function resetClaim() {
@@ -66,7 +68,7 @@ function resetClaim() {
   const info = connectInfo({ cfg })
   if (!info.line) { process.stderr.write(noLineText(info.why, { cfg })); return }
   writeFileAtomic(claimFiles(cfg.dataDir).connect, info.line + '\n', 0o600)
-  process.stdout.write(connectBlock(info, { file: claimFiles(cfg.dataDir).connect }))
+  process.stdout.write(connectBlock(info, { file: claimFiles(cfg.dataDir).connect, edition: cfg.edition, command: process.env.RELAY_COMMAND || null }))
 }
 
 // Last line of defence: an exception thrown in some callback must not drop every user's connection with it. Log it
@@ -101,7 +103,7 @@ async function run() {
     throw e
   }
   const st = relay.state
-  relay.log.info('started', { version: VERSION, state: st.bound ? 'claimed' : 'unclaimed', account: cfg.account, port: addr.port, tls: cfg.tlsMode,
+  relay.log.info('started', { version: VERSION, edition: cfg.edition, coord: cfg.coord.url, state: st.bound ? 'claimed' : 'unclaimed', account: cfg.account, port: addr.port, tls: cfg.tlsMode,
     pin: st.pin, host: st.publicHost, store: cfg.blobs.store })
   let stopping = false
   const stop = async (sig) => {

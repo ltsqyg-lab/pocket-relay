@@ -20,7 +20,7 @@ Related: [E2EE.md](E2EE.md) (tickets, blobs, envelopes), [COORD.md](COORD.md) §
 |---|---|---|---|---|
 | `official` | phone → official gateway (Hong Kong) → a cloud speech service | the official gateway process (memory only) and that service | nothing | zh「官方云端识别」 en "Pocket cloud" |
 | `computer` | phone → relay (encrypted blob) → the user's computer → local model | nobody else | a computer online with a local model installed (§8) | 「我的电脑识别」 "My computer" |
-| `gateway` | phone → the user's own gateway → the engine they configured | their gateway and, for cloud engines, that provider | a deployed gateway (§11) + a token | 「自建语音网关」 "My own gateway" |
+| `gateway` | phone → the user's own gateway → the engine they configured | their gateway and, for cloud engines, that provider | a deployed gateway (§11) + a token | 「自建语音服务」 "Self-hosted speech service" |
 | `device` | stays on the phone | nobody | iOS on-device recognition / Android 13+ on-device recognizer for the language (§9) | 「手机本机识别」 "On this phone" |
 
 - **First use**: the first time the user holds the mic button, the App shows the four modes — `official` first and
@@ -38,7 +38,7 @@ line the gateway prints (§11.2).
 
 ### `GET /v1/info` (public)
 ```json
-{ "service": "pocket-asr", "version": "1.1", "gatewayId": "official",
+{ "service": "pocket-asr", "version": "1.1", "edition": "intl", "gatewayId": "official",
   "engines": [ { "id": "volcano", "kind": "cloud", "langs": ["zh", "en"], "maxSeconds": 240, "default": true } ],
   "auth": ["ticket"] | ["token"] | ["ticket", "token"],
   "limits": { "maxBytes": 8388608, "maxSeconds": 240 } }
@@ -182,6 +182,7 @@ runs in the deepest directory holding all its files and gets ASCII relative path
 Optional: every key has a default, and with no file at all the gateway runs as in §11.1.
 ```json
 {
+  "edition": "intl",
   "gatewayId": "my-asr",
   "listen": { "host": null, "port": 8444 },
   "tls": "auto",
@@ -203,11 +204,12 @@ Optional: every key has a default, and with no file at all the gateway runs as i
 ```
 Values of the form `env:NAME` are read from the environment at startup (secrets never sit in the file).
 Limits are per caller (token label or ticket account).
-Defaults: `gatewayId` `my-asr` (required when ticket auth is on: tickets are addressed to `asr:<gatewayId>`);
+Defaults: `edition` `intl` (§11.5; `cn` when `coordUrl` or `auth.ticket.coordUrl` names the mainland China server);
+`gatewayId` `my-asr` (required when ticket auth is on: tickets are addressed to `asr:<gatewayId>`);
 `listen` every address (`host: null`), port 8444; `tls` `"auto"` (§11.1); `publicUrl` `null` (§11.1); `coordUrl`
-`https://pocket.pocketcli.net`; `dataDir` `/var/lib/pocket-asr` when started from the command line; no `engines` = the
+the edition's (`https://pocket.pocketcli.net` / `https://api.pocketcli.cn`); `dataDir` `/var/lib/pocket-asr` when started from the command line; no `engines` = the
 local engine of §11.1; `timezone` `Asia/Shanghai`; `dayMinutes` 120, `monthMinutes` 1500 (§6.1). Environment variables
-override the file: `ASR_DATA_DIR`, `ASR_PORT`, `ASR_PUBLIC_URL`, `ASR_TLS` (`auto` | `self` | `off`), `ASR_COORD_URL`,
+override the file: `ASR_DATA_DIR`, `ASR_PORT`, `ASR_PUBLIC_URL`, `ASR_TLS` (`auto` | `self` | `off`), `ASR_EDITION`, `ASR_COORD_URL`,
 `ASR_DAY_MINUTES`, `ASR_MONTH_MINUTES`; the file itself comes from `--config`, `ASR_CONFIG` or `/etc/pocket-asr/asr.json`.
 
 ### 6.1 Speech time
@@ -279,10 +281,14 @@ gateway therefore brings its own certificate and the App pins it: no domain, no 
 
 ### 11.1 Without a domain (the default)
 ```
+curl -fsSL https://api.pocketcli.cn/dl/selfhost/install.sh | sudo bash         # mainland China edition, with the relay
+curl -fsSL https://pocket.pocketcli.net/dl/selfhost/install.sh | sudo bash     # international edition
 docker run -d --name pocket-asr --restart unless-stopped -p 8444:8444 -v pocket-asr:/var/lib/pocket-asr pocket-asr
 docker logs pocket-asr        # → the connection line
 ```
-(or `node src/main.mjs` with Node 22). With no configuration the gateway, on first start:
+(or `node src/main.mjs` with Node 22). The one-command install is RELAY.md §12.2: it makes the first token with
+`new-token` before the service starts, so the token is printed by the installer once and never reaches the journal.
+With no configuration the gateway, on first start:
 
 1. **Engine**: local recognition, sherpa-onnx + SenseVoice small int8 (`zh`, `en`, `auto`): the program from the image
    (or installed into `<dataDir>/sherpa-onnx`), the model downloaded into `<dataDir>/models/sense-voice-int8`; every file
@@ -309,7 +315,8 @@ certificate; `"off"` / `null` = plain HTTP behind the owner's HTTPS reverse prox
 (read at start; the pin of the leaf certificate is printed too). A ticket-only gateway behind a proxy (the official
 one, §10) prints no line and never asks for its address.
 
-Commands (in Docker: `docker exec pocket-asr …`): `node src/main.mjs new-token [label]` makes another token and prints a
+Commands (in Docker: `docker exec pocket-asr …`; after the one-command install: `sudo pocket-asr …`, and `ASR_COMMAND`
+names that in the output): `node src/main.mjs new-token [label]` makes another token and prints a
 complete line; `connect-string` prints the line without a token (tokens cannot be shown again: only hashes are kept);
 `tokens` lists labels; `revoke-token <label>` removes a stored token. A running gateway re-reads `tokens.json` when it
 changes (at most once a second), so new and revoked tokens take effect without a restart. The commands never replace
@@ -326,7 +333,7 @@ pocket-asr://<host>:<port>[/<path>]?pin=sha256:<hex>&token=<token>
   a certificate from a public authority (so renewals keep working) and when a reverse proxy terminates TLS.
 - `token`: the static token for `Authorization: Bearer`. Absent from `connect-string` and `connect.txt`.
 - Base URL for §2: `https://<host>:<port><path>`. Unknown query parameters are ignored (room for later additions).
-- In the App: Settings → Voice transcription → My own gateway → paste the line (zh「我的 → 语音识别方式 → 自建语音网关」).
+- In the App: Settings → Voice transcription → Self-hosted speech service → paste the line (zh「我的 → 语音识别方式 → 自建语音服务」).
   The App keeps the token in the platform keystore.
 
 ### 11.3 Pin check in the App
@@ -345,6 +352,19 @@ validates the certificate the usual way (system roots and host name). The App's 
 - One server can run the relay (port 8443) and the speech gateway (port 8444) side by side.
 - Self-hosters may also enable ticket auth for their own account instead of a static token.
 
+### 11.5 Editions
+Pocket runs two separate services (RELAY.md §2.1): international (`intl`, `https://pocket.pocketcli.net`) and mainland
+China (`cn`, `https://api.pocketcli.cn`). `edition` (`ASR_EDITION`) sets:
+- `coordUrl` (the `GET /v2/whoami` address lookup), unless configured;
+- where models and engine programs are downloaded from (`models.json` `editions`): `intl` = the mirror
+  `https://pocket.pocketcli.net/dl/asr/`, then the upstream URL; `cn` = only `https://api.pocketcli.cn/dl/asr/`, never
+  the upstream URL (GitHub, Hugging Face and alphacephei.com are not tried). That mirror holds the default model and
+  the Linux sherpa-onnx programs; an engine's own `install.mirrors` replace the edition's, still without upstream.
+A `cn` gateway therefore contacts only `api.pocketcli.cn` and the cloud engines its owner configures. Startup fails when
+`coordUrl` or `auth.ticket.coordUrl` names the other edition's coordination server, or `auth.ticket.pinnedKeys` holds
+the other edition's coordination key. `GET /v1/info` includes `"edition"`. The token-authenticated App does not care
+which edition a gateway is: the edition only keeps a mainland server's traffic in mainland China.
+
 ## 12. Conformance tests
 WAV validation (rates, channels, truncated headers, size and duration limits); token auth (hash only); ticket auth with
 every `vectors.json` `coord.ticket`/`coord.asrAuth` case plus nonce replay and body mismatch; per-caller rate and
@@ -355,4 +375,6 @@ against a local mock of its protocol (request shape, auth header or signature, e
 success, error and abort); logs and error bodies contain no text or audio; `computer` mode end to end through a local
 relay with the agent's embedded module; self-hosting (§11): the certificate kept across starts and never replaced by
 the commands, tokens stored as hashes and picked up / dropped while running, whoami answers and fallbacks, the line's
-format and pin rules, and `node src/main.mjs` end to end with a client that pins the certificate.
+format and pin rules, and `node src/main.mjs` end to end with a client that pins the certificate; editions (§11.5):
+`intl` by default, contradictions refused, every model and program of a `cn` gateway downloaded only from
+`https://api.pocketcli.cn/dl/asr/`, and a `cn` gateway as a process contacting nothing else.

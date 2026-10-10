@@ -42,7 +42,7 @@ test('HTTP auth: challenge is single use and expires; info, well-known, health, 
   assert.deepEqual(info.features, ['ws', 'objects', 'blobs'])
   assert.equal(info.limits.envelope, 1048576)
   assert.equal(info.state, 'claimed')
-  assert.deepEqual(await (await tfetch(`${r.base}/.well-known/pocket-relay`)).json(), { v: 1, state: 'claimed', relayId: 'hk1', account: '*', version: info.version })
+  assert.deepEqual(await (await tfetch(`${r.base}/.well-known/pocket-relay`)).json(), { v: 1, state: 'claimed', relayId: 'hk1', account: '*', version: info.version, edition: 'intl' })
   assert.equal((await tfetch(`${r.base}/v1/health`)).status, 200)
   const m = await (await tfetch(`${r.base}/v1/metrics`)).json()
   assert.ok('connections' in m && 'queue' in m)

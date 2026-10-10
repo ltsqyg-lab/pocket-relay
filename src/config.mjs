@@ -33,21 +33,53 @@ export const DEFAULT_LIMITS = {
   presenceDebounceMs: 5000,
 }
 
-/** The official coordination public key (also pinned in the App and the desktop agent; not a secret). Newer keys are
- *  adopted when keys.json is signed by one already trusted (E2EE.md §12.1), so this list only grows with releases. */
+/** The official coordination public key of the international edition (also pinned in the App and the desktop agent;
+ *  not a secret). Newer keys are adopted when keys.json is signed by one already trusted (E2EE.md §12.1), so this list
+ *  only grows with releases. */
 export const OFFICIAL_COORD_KEYS = [
   { kid: 'c1', pub: 'BLv9ISMLeI3tx3arobNAhCeYOFlF7DWmPGHh5zky1v0V2vLMLdeQIoFnJAmRkj_oU9i6Ml0Qoe2-v-xdEeRhqJ0',
     use: ['keys', 'ticket', 'netmap', 'revocations', 'purge'], nbf: 1791478203268, exp: 1886086503268 },
 ]
+/** The coordination public key of the mainland China edition (api.pocketcli.cn). */
+export const CN_COORD_KEYS = [
+  { kid: 'c1', pub: 'BKhhniVXB9NNhTXSRxobx4SWsho4vLGYCAcU32s9zP9mr-5Fj6_rScKjKmf7Kout2Un2nG1edVuFLngEsgtKUtI',
+    use: ['keys', 'ticket', 'netmap', 'revocations', 'purge'], nbf: 1791598605724, exp: 1886206905724 },
+]
+
+/**
+ * The two Pocket services (RELAY.md §2.1). They share no accounts, keys or servers: a relay serves the accounts of one
+ * of them, and the App of one edition can add only relays of that edition. `edition` picks the coordination server and
+ * its pinned key; the mainland China edition talks to nothing outside mainland China. `coordIps` are where that
+ * edition's coordination server sends its claims from: a claim arriving from the other edition's is refused
+ * (`wrong-edition`), so a relay installed with the wrong command says so instead of being bound to an account whose
+ * devices it can never let in.
+ */
+export const EDITIONS = {
+  intl: { coordUrl: 'https://pocket.pocketcli.net', keys: OFFICIAL_COORD_KEYS, coordIps: ['43.129.75.199'],
+    install: 'curl -fsSL https://pocket.pocketcli.net/dl/selfhost/install.sh | sudo bash', zh: '国际版', en: 'international edition' },
+  cn: { coordUrl: 'https://api.pocketcli.cn', keys: CN_COORD_KEYS, coordIps: ['110.42.231.153'],
+    install: 'curl -fsSL https://api.pocketcli.cn/dl/selfhost/install.sh | sudo bash', zh: '国内版', en: 'mainland China edition' },
+}
+export const EDITION_NAMES = Object.keys(EDITIONS)
+/** The edition whose official coordination server is at this URL (same origin), or null. */
+export function editionOfUrl(url) {
+  let o
+  try { o = new URL(String(url)).origin } catch { return null }
+  return EDITION_NAMES.find((e) => new URL(EDITIONS[e].coordUrl).origin === o) ?? null
+}
 
 export const DEFAULTS = {
+  // "intl" (pocket.pocketcli.net) or "cn" (api.pocketcli.cn, mainland China): which coordination server and key
+  // coord.url and coord.pinnedKeys default to (RELAY.md §2.1). null = "intl", or "cn" when coord.url is the cn server.
+  edition: null,
   relayId: null,                        // both null: the relay is claimed from the Pocket App (RELAY.md §12.1)
   account: null,
   publicUrl: null,                      // null: ask coordination for this server's IP and use https://<ip>:<listen.port>
   listen: { host: '0.0.0.0', port: 8443 },
   tls: 'auto',                          // "auto": own self-signed certificate, or plain HTTP when trustProxy is true
   trustProxy: false,
-  coord: { url: 'https://pocket.pocketcli.net', pinnedKeys: OFFICIAL_COORD_KEYS, refreshHours: 6, pollSeconds: 60, idlePollHours: 6 },
+  // url and pinnedKeys left out (undefined): the edition's coordination server and key (EDITIONS); url null = none (labs)
+  coord: { url: undefined, pinnedKeys: undefined, refreshHours: 6, pollSeconds: 60, idlePollHours: 6 },
   dataDir: '/var/lib/pocket-relay',
   blobs: { store: 'disk' },
   timezone: 'Asia/Shanghai',
@@ -166,10 +198,26 @@ export function finalize(input) {
     if (typeof cfg.relayId !== 'string' || !/^[A-Za-z0-9_:.-]{1,64}$/.test(cfg.relayId)) bad('relayId must be the id coordination gave this relay, e.g. "hk1" or "r_…"')
     if (typeof cfg.account !== 'string' || cfg.account.length > 128) bad('account must be "*" for any account, otherwise the one account this relay serves')
   } else { cfg.relayId = null; cfg.account = null }
+  // the edition (RELAY.md §2.1): given, or the one whose coordination server coord.url names, else international
+  let edition = cfg.edition
+  if (edition === null || edition === undefined || edition === '') edition = editionOfUrl(cfg.coord?.url) ?? 'intl'
+  if (typeof edition !== 'string' || !EDITIONS[edition]) bad(`edition must be ${EDITION_NAMES.map((e) => `"${e}"`).join(' or ')} (RELAY_EDITION)`)
+  const urlEdition = cfg.coord?.url ? editionOfUrl(cfg.coord.url) : null
+  if (urlEdition && urlEdition !== edition) {
+    bad(`edition "${edition}" and coord.url ${cfg.coord.url} (the coordination server of the "${urlEdition}" edition) disagree: remove coord.url, or set edition "${urlEdition}"`)
+  }
+  cfg.edition = edition
+  if (cfg.coord.url === undefined) cfg.coord.url = EDITIONS[edition].coordUrl
   let pinned = cfg.coord?.pinnedKeys
+  if (pinned === undefined) pinned = structuredClone(EDITIONS[edition].keys)
   if (typeof pinned === 'string') { try { pinned = JSON.parse(pinned) } catch { bad('coord.pinnedKeys must be a JSON array') } }
   if (!Array.isArray(pinned) || !pinned.length) bad('coord.pinnedKeys must list at least one coordination public key')
   for (const k of pinned) if (!validKeyRecord(k)) bad(`coord.pinnedKeys has an invalid entry (${JSON.stringify(k?.kid ?? k)}); each needs kid, pub, use, nbf, exp`)
+  for (const other of EDITION_NAMES.filter((e) => e !== edition)) {
+    if (pinned.some((k) => EDITIONS[other].keys.some((o) => o.pub === k.pub))) {
+      bad(`coord.pinnedKeys holds the key of the "${other}" edition, but this relay is the "${edition}" edition: remove coord.pinnedKeys, or set edition "${other}"`)
+    }
+  }
   cfg.coord.pinnedKeys = pinned
   if (cfg.coord.url != null) {
     try { const u = new URL(cfg.coord.url); if (!/^https?:$/.test(u.protocol)) throw 0 } catch { bad('coord.url must be an http(s) URL') }
