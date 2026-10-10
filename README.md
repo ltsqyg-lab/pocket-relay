@@ -23,10 +23,10 @@ curl -fsSL https://api.pocketcli.cn/dl/selfhost/install.sh | sudo bash
 It ends with two lines (the script talks in Chinese; these lines are what you need):
 
 ```
- 中继:在 Pocket App「我的 → 服务器 → 添加自建服务器」粘贴这一行
+ Relay: In the Pocket app, go to Me → Servers → Add Self-Hosted Server, then paste the following line.
    pocket-relay://203.0.113.7:8443?pin=sha256:3f1c…&claim=Qm9x…
 
- 语音服务:在 Pocket App「我的 → 语音识别方式 → 自建语音服务」粘贴这一行
+ Speech service: In the Pocket app, go to Me → Speech Recognition Method → Self-Hosted Speech Service, then paste the following line.
    pocket-asr://203.0.113.7:8444?pin=sha256:068a…&token=eJLA…
 ```
 
