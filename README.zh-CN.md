@@ -2,7 +2,7 @@
 
 # Pocket 中继
 
-[Pocket](https://pocket.pocketcli.net) 的中继。Pocket 是用手机遥控电脑上 AI 编程工具(Claude Code、Codex 等)的 App。中继替你的设备转发、保存端到端加密的数据,自己看不到内容。官方中继跑的就是这份代码,你也可以自己跑一个。
+[Pocket](https://pocket.pocketcli.net) 的中继。Pocket 是用手机遥控电脑上 AI 编程工具(Claude Code、Codex、pi、Kimi Code、DeepSeek Harness)的 App。中继替你的设备转发、保存端到端加密的数据,自己看不到内容。官方中继跑的就是这份代码,你也可以自己跑一个。
 
 ## 一条命令部署(推荐)
 
